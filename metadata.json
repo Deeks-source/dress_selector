@@ -1,0 +1,8 @@
+{
+  "name": "StyleMind - AI Personal Wardrobe",
+  "description": "A smart digital wardrobe that analyzes your clothes and recommends the perfect outfit for any occasion using Gemini AI.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
