@@ -53,4 +53,4 @@ export interface DesignerState {
   advice: string;
 }
 
-export type View = 'onboarding' | 'wardrobe' | 'recommend' | 'designer';
+export type View = 'onboarding' | 'wardrobe' | 'recommend' | 'designer' | 'profile';

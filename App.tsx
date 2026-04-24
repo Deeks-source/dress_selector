@@ -5,8 +5,9 @@ import Onboarding from './components/Onboarding';
 import WardrobeGrid from './components/WardrobeGrid';
 import OutfitRecommender from './components/OutfitRecommender';
 import CostumeDesigner from './components/CostumeDesigner';
+import Profile from './components/Profile';
 import { Shirt, LayoutGrid, Sparkles, ShoppingBag, Globe, LogIn, Plus } from 'lucide-react';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, User as AuthUser } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signInWithRedirect, GoogleAuthProvider, User as AuthUser } from 'firebase/auth';
 import { auth } from './firebase';
 import { syncWardrobeItem, deleteWardrobeItemDB, syncChatMessage, getOrInitUser, subscribeToMemory, subscribeToWardrobe, subscribeToChats, appendMemoryFact } from './services/firebaseService';
 
@@ -37,21 +38,7 @@ const App: React.FC = () => {
       if (u && u.email) {
         // Initialize user in DB
         await getOrInitUser(u.uid, u.email);
-
-        // Subscriptions
-        const unsubMem = subscribeToMemory(u.uid, setMemory);
-        const unsubWardrobe = subscribeToWardrobe(u.uid, (items) => {
-          setWardrobe(items);
-          if (items.length > 0) setView('wardrobe');
-        });
-        const unsubChats = subscribeToChats(u.uid, setChatHistory);
-
         setIsInitializing(false);
-        return () => {
-          unsubMem();
-          unsubWardrobe();
-          unsubChats();
-        };
       } else {
         setWardrobe([]);
         setChatHistory([]);
@@ -62,6 +49,24 @@ const App: React.FC = () => {
 
     return () => unsubscribeAuth();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Subscriptions
+    const unsubMem = subscribeToMemory(user.uid, setMemory);
+    const unsubWardrobe = subscribeToWardrobe(user.uid, (items) => {
+      setWardrobe(items);
+      if (items.length > 0) setView('wardrobe');
+    });
+    const unsubChats = subscribeToChats(user.uid, setChatHistory);
+
+    return () => {
+      unsubMem();
+      unsubWardrobe();
+      unsubChats();
+    };
+  }, [user]);
 
   // Sync designer cache locally
   useEffect(() => {
@@ -75,7 +80,13 @@ const App: React.FC = () => {
 
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    const isCapacitor = window.hasOwnProperty('capacitor') || window.hasOwnProperty('Capacitor') || /Capacitor/i.test(navigator.userAgent);
+    
+    if (isCapacitor) {
+      await signInWithRedirect(auth, provider);
+    } else {
+      await signInWithPopup(auth, provider);
+    }
   };
 
   const handleAddItems = async (items: ClothingItem[]) => {
@@ -171,7 +182,7 @@ const App: React.FC = () => {
             </select>
           </div>
 
-          <nav className="hidden sm:flex gap-1 bg-white p-1.5 rounded-2xl border-[3px] border-black">
+          <nav className="hidden sm:flex gap-1 bg-white p-1.5 rounded-2xl border-[3px] border-black items-center">
             <button onClick={() => setView('wardrobe')} className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-black transition-all ${view === 'wardrobe' ? 'bg-white text-black ' : 'text-black hover:text-black hover:bg-[#EAEAEA]/50'}`}>
               <LayoutGrid size={18} strokeWidth={2.5}/>
               <span>{t.wardrobe}</span>
@@ -184,6 +195,18 @@ const App: React.FC = () => {
               <ShoppingBag size={18} strokeWidth={2.5}/>
               <span>{t.designer}</span>
             </button>
+            {user && <div className="w-[3px] h-6 bg-[#D0D0D0] mx-1 rounded-full"></div>}
+            {user && (
+              <button 
+                onClick={() => setView('profile')} 
+                className={`flex items-center gap-2 p-1 rounded-xl transition-all ${view === 'profile' ? 'bg-[#CCFF00] border-[2px] border-black shadow-[2px_2px_0_0_#000]' : 'hover:bg-[#EAEAEA]/50 border-[2px] border-transparent'}`}
+                title="Profile"
+              >
+                <div className="w-7 h-7 rounded-lg overflow-hidden bg-[#D0D0D0] border-2 border-black flex items-center justify-center">
+                  {user.photoURL ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-zinc-300"></div>}
+                </div>
+              </button>
+            )}
           </nav>
         </div>
       </header>
@@ -191,8 +214,9 @@ const App: React.FC = () => {
       <main className={`flex-1 max-w-7xl mx-auto w-full ${view === 'recommend' ? 'px-0 sm:px-8 pt-0 sm:pt-6' : 'px-4 sm:px-8 py-6 sm:py-10'} flex flex-col overflow-y-auto pb-[100px] sm:pb-10 relative`}>
         {view === 'onboarding' && <Onboarding onItemsAdded={handleAddItems} wardrobe={wardrobe} onComplete={() => setView('wardrobe')} />}
         {view === 'wardrobe' && <WardrobeGrid items={wardrobe} onDelete={handleDeleteItem} onUpdate={handleUpdateItem} onAddMore={() => setView('onboarding')} language={language} />}
-        {view === 'recommend' && <OutfitRecommender wardrobe={wardrobe} language={language} chatHistory={chatHistory} setChatHistory={syncChatState} onMarkAsWorn={markAsWorn} userMemory={memory} userUid={user.uid} />}
+        {view === 'recommend' && <OutfitRecommender wardrobe={wardrobe} language={language} chatHistory={chatHistory} setChatHistory={syncChatState} onMarkAsWorn={markAsWorn} userMemory={memory} userUid={user?.uid} />}
         {view === 'designer' && <CostumeDesigner wardrobe={wardrobe} language={language} cache={designerCache} setCache={setDesignerCache} />}
+        {view === 'profile' && user && <Profile user={user} onSignOut={() => auth.signOut()} />}
       </main>
 
       {/* Mobile Bottom Navigation */}
@@ -223,9 +247,9 @@ const App: React.FC = () => {
           <span className="text-[10px] font-black">AI Stylist</span>
         </button>
         
-        <div className={`flex flex-col items-center gap-1.5 w-16 text-black`}>
-          <div className="p-2">
-             <div className="w-6 h-6 rounded-2xl sm:rounded-[2rem] bg-[#D0D0D0] border-2 border-white  overflow-hidden flex items-center justify-center">
+        <div onClick={() => setView('profile')} className={`flex flex-col cursor-pointer items-center gap-1.5 w-16 text-black ${view === 'profile' ? 'opacity-100' : 'opacity-80'}`}>
+          <div className={`${view === 'profile' ? 'bg-[#F4F1FD] p-2 rounded-xl' : 'p-2'}`}>
+             <div className="w-6 h-6 rounded-2xl sm:rounded-[2rem] bg-[#D0D0D0] border-2 border-black overflow-hidden flex items-center justify-center">
                 {user?.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-zinc-300"></div>}
              </div>
           </div>
