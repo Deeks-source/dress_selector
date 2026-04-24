@@ -5,18 +5,19 @@ import Onboarding from './components/Onboarding';
 import WardrobeGrid from './components/WardrobeGrid';
 import OutfitRecommender from './components/OutfitRecommender';
 import CostumeDesigner from './components/CostumeDesigner';
-import { Shirt, LayoutGrid, Sparkles, ShoppingBag, Globe } from 'lucide-react';
+import { Shirt, LayoutGrid, Sparkles, ShoppingBag, Globe, LogIn, Plus } from 'lucide-react';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, User as AuthUser } from 'firebase/auth';
+import { auth } from './firebase';
+import { syncWardrobeItem, deleteWardrobeItemDB, syncChatMessage, getOrInitUser, subscribeToMemory, subscribeToWardrobe, subscribeToChats, appendMemoryFact } from './services/firebaseService';
 
-const WARDROBE_KEY = 'stylemind_wardrobe';
-const CHAT_KEY = 'stylemind_chat_v2';
 const DESIGNER_KEY = 'stylemind_designer_cache';
 
 const translations = {
-  en: { wardrobe: 'Closet', recommend: 'Stylist', designer: 'Designer', lang: 'EN' },
-  hi: { wardrobe: 'अलमारी', recommend: 'स्टाइलिश', designer: 'डिज़ाइनर', lang: 'HI' },
-  es: { wardrobe: 'Armario', recommend: 'Estilista', designer: 'Diseñador', lang: 'ES' },
-  fr: { wardrobe: 'Placard', recommend: 'Styliste', designer: 'Créateur', lang: 'FR' },
-  ja: { wardrobe: 'クローゼット', recommend: 'スタイリスト', designer: 'デザイナー', lang: 'JA' }
+  en: { wardrobe: 'Closet', recommend: 'Stylist', designer: 'Designer', lang: 'EN', login: 'Login' },
+  hi: { wardrobe: 'अलमारी', recommend: 'स्टाइलिश', designer: 'डिज़ाइनर', lang: 'HI', login: 'लॉग इन' },
+  es: { wardrobe: 'Armario', recommend: 'Estilista', designer: 'Diseñador', lang: 'ES', login: 'Acceso' },
+  fr: { wardrobe: 'Placard', recommend: 'Styliste', designer: 'Créateur', lang: 'FR', login: 'Connexion' },
+  ja: { wardrobe: 'クローゼット', recommend: 'スタイリスト', designer: 'デザイナー', lang: 'JA', login: 'ログイン' }
 };
 
 const App: React.FC = () => {
@@ -25,88 +26,213 @@ const App: React.FC = () => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [designerCache, setDesignerCache] = useState<DesignerState | null>(null);
   const [language, setLanguage] = useState<Language>('en');
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [memory, setMemory] = useState<string[]>([]);
+  const [isInitializing, setIsInitializing] = useState(true);
 
+  // Authentication and Data Subscription Effect
   useEffect(() => {
-    const savedWardrobe = localStorage.getItem(WARDROBE_KEY);
-    const savedChat = localStorage.getItem(CHAT_KEY);
-    const savedDesigner = localStorage.getItem(DESIGNER_KEY);
-    
-    if (savedWardrobe) {
-      const items = JSON.parse(savedWardrobe);
-      setWardrobe(items);
-      // RELAXED: If user has ANY items, they can see their wardrobe. No more hard shirt/pants block.
-      if (items.length > 0) {
-        setView('wardrobe');
+    const unsubscribeAuth = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      if (u && u.email) {
+        // Initialize user in DB
+        await getOrInitUser(u.uid, u.email);
+
+        // Subscriptions
+        const unsubMem = subscribeToMemory(u.uid, setMemory);
+        const unsubWardrobe = subscribeToWardrobe(u.uid, (items) => {
+          setWardrobe(items);
+          if (items.length > 0) setView('wardrobe');
+        });
+        const unsubChats = subscribeToChats(u.uid, setChatHistory);
+
+        setIsInitializing(false);
+        return () => {
+          unsubMem();
+          unsubWardrobe();
+          unsubChats();
+        };
+      } else {
+        setWardrobe([]);
+        setChatHistory([]);
+        setMemory([]);
+        setIsInitializing(false);
       }
-    }
-    if (savedChat) setChatHistory(JSON.parse(savedChat));
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  // Sync designer cache locally
+  useEffect(() => {
+    const savedDesigner = localStorage.getItem(DESIGNER_KEY);
     if (savedDesigner) setDesignerCache(JSON.parse(savedDesigner));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(WARDROBE_KEY, JSON.stringify(wardrobe));
-    localStorage.setItem(CHAT_KEY, JSON.stringify(chatHistory));
     if (designerCache) localStorage.setItem(DESIGNER_KEY, JSON.stringify(designerCache));
-  }, [wardrobe, chatHistory, designerCache]);
+  }, [designerCache]);
 
-  const markAsWorn = (itemIds: string[]) => {
-    setWardrobe(prev => prev.map(item => 
-      itemIds.includes(item.id) ? { ...item, wearCount: item.wearCount + 1 } : item
-    ));
+  const handleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  };
+
+  const handleAddItems = async (items: ClothingItem[]) => {
+    if (!user) return;
+    for (const item of items) {
+      await syncWardrobeItem(user.uid, item);
+    }
+  };
+
+  const handleUpdateItem = async (item: ClothingItem) => {
+    if (!user) return;
+    await syncWardrobeItem(user.uid, item);
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    if (!user) return;
+    await deleteWardrobeItemDB(user.uid, id);
+  };
+
+  const syncChatState = async (newHistory: ChatMessage[]) => {
+    setChatHistory(newHistory);
+    if (!user) return;
+    // Sync the newest message
+    const msg = newHistory[newHistory.length - 1];
+    if (msg) {
+      await syncChatMessage(user.uid, msg);
+    }
+  };
+
+  const markAsWorn = async (itemIds: string[]) => {
+    if (!user) return;
+    for (const item of wardrobe) {
+      if (itemIds.includes(item.id)) {
+        await syncWardrobeItem(user.uid, { ...item, wearCount: item.wearCount + 1 });
+      }
+    }
   };
 
   const t = translations[language] || translations['en'];
 
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F3EFFC] flex-col gap-6">
+        <div className="w-20 h-20 bg-[#CCFF00] rounded-[1.5rem] flex items-center justify-center text-black shadow-[6px_6px_0_0_#000] shadow-[#6B4EFF]/20 animate-bounce">
+           <Shirt size={40} strokeWidth={2.5} />
+        </div>
+        <div className="text-xl font-black text-black tracking-tight animate-pulse">Loading StyleMind...</div>
+      </div>
+    );
+  }
+
+    if (!user) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#F3EFFC] items-center justify-center px-4">
+         <div className="bg-white p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:shadow-[6px_6px_0_0_#000] max-w-sm w-full text-center space-y-8">
+            <div className="mx-auto w-24 h-24 bg-[#CCFF00] rounded-[2rem] flex items-center justify-center text-black shadow-[4px_4px_0_0_#000]">
+               <Shirt size={48} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-4xl font-black text-black tracking-tight">StyleMind</h1>
+              <p className="text-black font-black mt-3 text-lg leading-snug">Login to save your closet and build your style profile.</p>
+            </div>
+            <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-[#CCFF00] text-black hover:bg-[#5A3EE0] font-black py-4 rounded-2xl transition-all text-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:translate-x-1 active:shadow-none">
+              <LogIn size={24} strokeWidth={2.5} /> Login with Google
+            </button>
+         </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 font-sans antialiased text-slate-900">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200 px-4 sm:px-8 py-4 flex justify-between items-center shadow-sm">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView(wardrobe.length > 0 ? 'wardrobe' : 'onboarding')}>
-          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-200">
-            <Shirt size={28} />
+    <div className="flex flex-col h-[100dvh] bg-[#F3EFFC] font-sans antialiased text-black overflow-hidden relative">
+      <header className="shrink-0 z-50 bg-white/100 border-b-[3px] border-black px-4 sm:px-8 py-3 sm:py-4 flex justify-between items-center relative">
+        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView(wardrobe.length > 0 ? 'wardrobe' : 'onboarding')}>
+          <div className="w-10 h-10 bg-[#CCFF00] rounded-xl flex items-center justify-center text-black shadow-[4px_4px_0_0_#000] group-hover:scale-105 transition-transform">
+            <Shirt size={22} strokeWidth={2.5}/>
           </div>
-          <h1 className="text-2xl font-black tracking-tighter text-slate-900 hidden sm:block">StyleMind</h1>
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-black hidden sm:block">StyleMind</h1>
         </div>
         
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-            <Globe size={18} className="text-slate-400 ml-1" />
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1.5 bg-[#F4F1FD] px-3 py-1.5 rounded-xl text-black">
+            <Globe size={16} strokeWidth={2.5}/>
             <select 
               value={language} onChange={(e) => setLanguage(e.target.value as Language)}
-              className="bg-transparent text-sm font-bold text-slate-700 focus:outline-none pr-1 cursor-pointer"
+              className="bg-transparent text-sm font-black focus:outline-none pr-1 cursor-pointer outline-none"
             >
-              <option value="en">English</option>
-              <option value="hi">हिंदी</option>
-              <option value="es">Español</option>
-              <option value="fr">Français</option>
-              <option value="ja">日本語</option>
+              <option value="en">EN</option>
+              <option value="hi">HI</option>
+              <option value="es">ES</option>
+              <option value="fr">FR</option>
+              <option value="ja">JA</option>
             </select>
           </div>
 
-          {view !== 'onboarding' && (
-            <nav className="flex gap-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-              <button onClick={() => setView('wardrobe')} className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-black transition-all ${view === 'wardrobe' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:bg-white/50'}`}>
-                <LayoutGrid size={18} />
-                <span className="hidden md:inline">{t.wardrobe}</span>
-              </button>
-              <button onClick={() => setView('recommend')} className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-black transition-all ${view === 'recommend' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:bg-white/50'}`}>
-                <Sparkles size={18} />
-                <span className="hidden md:inline">{t.recommend}</span>
-              </button>
-              <button onClick={() => setView('designer')} className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-black transition-all ${view === 'designer' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:bg-white/50'}`}>
-                <ShoppingBag size={18} />
-                <span className="hidden md:inline">{t.designer}</span>
-              </button>
-            </nav>
-          )}
+          <nav className="hidden sm:flex gap-1 bg-white p-1.5 rounded-2xl border-[3px] border-black">
+            <button onClick={() => setView('wardrobe')} className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-black transition-all ${view === 'wardrobe' ? 'bg-white text-black ' : 'text-black hover:text-black hover:bg-[#EAEAEA]/50'}`}>
+              <LayoutGrid size={18} strokeWidth={2.5}/>
+              <span>{t.wardrobe}</span>
+            </button>
+            <button onClick={() => setView('recommend')} className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-black transition-all ${view === 'recommend' ? 'bg-white text-black ' : 'text-black hover:text-black hover:bg-[#EAEAEA]/50'}`}>
+              <Sparkles size={18} strokeWidth={2.5}/>
+              <span>{t.recommend}</span>
+            </button>
+            <button onClick={() => setView('designer')} className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-black transition-all ${view === 'designer' ? 'bg-white text-black ' : 'text-black hover:text-black hover:bg-[#EAEAEA]/50'}`}>
+              <ShoppingBag size={18} strokeWidth={2.5}/>
+              <span>{t.designer}</span>
+            </button>
+          </nav>
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-8 py-12">
-        {view === 'onboarding' && <Onboarding onItemsAdded={(items) => setWardrobe(p => [...p, ...items])} wardrobe={wardrobe} onComplete={() => setView('wardrobe')} />}
-        {view === 'wardrobe' && <WardrobeGrid items={wardrobe} onDelete={(id) => setWardrobe(p => p.filter(i => i.id !== id))} onUpdate={(upd) => setWardrobe(p => p.map(i => i.id === upd.id ? upd : i))} onAddMore={() => setView('onboarding')} language={language} />}
-        {view === 'recommend' && <OutfitRecommender wardrobe={wardrobe} language={language} chatHistory={chatHistory} setChatHistory={setChatHistory} onMarkAsWorn={markAsWorn} />}
+      <main className={`flex-1 max-w-7xl mx-auto w-full ${view === 'recommend' ? 'px-0 sm:px-8 pt-0 sm:pt-6' : 'px-4 sm:px-8 py-6 sm:py-10'} flex flex-col overflow-y-auto pb-[100px] sm:pb-10 relative`}>
+        {view === 'onboarding' && <Onboarding onItemsAdded={handleAddItems} wardrobe={wardrobe} onComplete={() => setView('wardrobe')} />}
+        {view === 'wardrobe' && <WardrobeGrid items={wardrobe} onDelete={handleDeleteItem} onUpdate={handleUpdateItem} onAddMore={() => setView('onboarding')} language={language} />}
+        {view === 'recommend' && <OutfitRecommender wardrobe={wardrobe} language={language} chatHistory={chatHistory} setChatHistory={syncChatState} onMarkAsWorn={markAsWorn} userMemory={memory} userUid={user.uid} />}
         {view === 'designer' && <CostumeDesigner wardrobe={wardrobe} language={language} cache={designerCache} setCache={setDesignerCache} />}
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 w-full bg-white flex justify-around items-end pb-8 pt-4 px-2 z-50 rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.06)] sm:hidden">
+        <button onClick={() => setView('wardrobe')} className={`flex flex-col items-center gap-1.5 w-16 ${view === 'wardrobe' ? 'text-black' : 'text-black'}`}>
+          <div className={`${view === 'wardrobe' ? 'bg-[#F4F1FD] p-2 rounded-xl' : 'p-2'}`}>
+             <LayoutGrid size={22} className={view === 'wardrobe' ? 'fill-current opacity-20' : ''} strokeWidth={2.5} />
+          </div>
+          <span className="text-[10px] font-black">Closet</span>
+        </button>
+        <button onClick={() => setView('designer')} className={`flex flex-col items-center gap-1.5 w-16 ${view === 'designer' ? 'text-black' : 'text-black'}`}>
+          <div className={`${view === 'designer' ? 'bg-[#F4F1FD] p-2 rounded-xl' : 'p-2'}`}>
+            <ShoppingBag size={22} className={view === 'designer' ? 'fill-current opacity-20' : ''} strokeWidth={2.5} />
+          </div>
+          <span className="text-[10px] font-black">Shop</span>
+        </button>
+        
+        <div className="relative -top-6">
+          <button onClick={() => setView('onboarding')} className="bg-[#CCFF00] text-black p-4 rounded-2xl sm:rounded-[2rem] shadow-[4px_4px_0_0_#000] shadow-[#6B4EFF]/40 hover:scale-105 active:translate-y-1 active:translate-x-1 active:shadow-none transition-all outline outline-8 outline-[#F3EFFC]">
+             <Plus size={24} strokeWidth={3} />
+          </button>
+        </div>
+
+        <button onClick={() => setView('recommend')} className={`flex flex-col items-center gap-1.5 w-16 ${view === 'recommend' ? 'text-black' : 'text-black'}`}>
+          <div className={`${view === 'recommend' ? 'bg-[#F4F1FD] p-2 rounded-xl' : 'p-2'}`}>
+             <Sparkles size={22} className={view === 'recommend' ? 'fill-current opacity-20' : ''} strokeWidth={2.5} />
+          </div>
+          <span className="text-[10px] font-black">AI Stylist</span>
+        </button>
+        
+        <div className={`flex flex-col items-center gap-1.5 w-16 text-black`}>
+          <div className="p-2">
+             <div className="w-6 h-6 rounded-2xl sm:rounded-[2rem] bg-[#D0D0D0] border-2 border-white  overflow-hidden flex items-center justify-center">
+                {user?.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-zinc-300"></div>}
+             </div>
+          </div>
+          <span className="text-[10px] font-black">Profile</span>
+        </div>
+      </nav>
+
     </div>
   );
 };

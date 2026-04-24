@@ -5,6 +5,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StyleMind - AI Personal Wardrobe</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap');
+      html, body { 
+        font-family: 'Outfit', sans-serif;
+        overflow: hidden;
+        height: 100%;
+        margin: 0;
+        position: fixed;
+        width: 100%;
+      }
+      #root {
+        height: 100%;
+        width: 100%;
+      }
+    </style>
     <script src="https://cdn.tailwindcss.com"></script>
 <script type="importmap">
 {
@@ -17,8 +32,10 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen">
+<body class="bg-black text-white min-h-screen">
     <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
 </body>
 </html>

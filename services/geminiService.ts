@@ -7,7 +7,7 @@ export const analyzeClothingImage = async (base64Image: string): Promise<any[]> 
   const model = 'gemini-3-flash-preview';
   
   const prompt = `Analyze this image and identify all distinct clothing items.
-  Format as JSON array with: name, category, silhouette, color, hexColor, material, pattern, style, season, description, box_2d.`;
+  Format as JSON array with: name, category, silhouette, color, hexColor, material, pattern, style, season, description, box_2d (array of 4 numbers [ymin, xmin, ymax, xmax] scaled 0-1000, if uncertain return null).`;
 
   try {
     const response = await ai.models.generateContent({
@@ -33,12 +33,15 @@ export const getChatStylistResponse = async (
   wardrobe: ClothingItem[],
   history: ChatMessage[],
   userMessage: string,
+  userMemory: string[] = [],
   language: string = 'en'
 ): Promise<{ text: string; itemIds?: string[] } | null> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const model = 'gemini-3-flash-preview';
 
-  const contextPrompt = `You are a stylish best friend. WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color })))}.
+  const contextPrompt = `You are a stylish best friend. 
+  USER PREFERENCES/PROFILE FACTS: ${JSON.stringify(userMemory)}
+  WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color })))}.
   Format JSON: {"text": "message", "itemIds": ["id1"]}`;
 
   const contents = [
@@ -56,6 +59,32 @@ export const getChatStylistResponse = async (
     return response.text ? JSON.parse(response.text) : null;
   } catch (e) {
     return null;
+  }
+};
+
+export const extractStyleMemory = async (
+  history: ChatMessage[],
+  userMessage: string
+): Promise<string[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `Analyze this user chat sequence and extract any new, permanent facts about their style preferences, physical traits, lifestyle, sizing, or dislikes.
+  If they mention they "hate the color yellow" or "work in a corporate office", that's a key fact!
+  Return a JSON array of strings containing the facts. If no clear facts exist, return an empty array [].
+  
+  Chat History:
+  ${history.slice(-4).map(h => `${h.role}: ${h.text}`).join('\n')}
+  User: ${userMessage}
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: { responseMimeType: "application/json" }
+    });
+    return response.text ? JSON.parse(response.text) : [];
+  } catch (e) {
+    return [];
   }
 };
 

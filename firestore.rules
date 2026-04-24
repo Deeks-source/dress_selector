@@ -1,0 +1,133 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definition
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Entity Validations
+    function isValidUser(data, isCreate) {
+      let hasRequired = isCreate ? data.keys().hasAll(['email', 'memory', 'createdAt', 'updatedAt']) && data.keys().size() == 4 : true;
+      let typesOk = (
+        data.email is string && data.email.size() <= 256 &&
+        data.memory is list && data.memory.size() <= 100 &&
+        (data.memory.size() == 0 || data.memory[0] is string) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp
+      );
+      return hasRequired && typesOk;
+    }
+    
+    function isValidWardrobeItem(data, isCreate) {
+      let isPartialUpdate = !isCreate;
+      let hasRequired = isCreate ? data.keys().hasAll(['image', 'category', 'silhouette', 'name', 'color', 'hexColor', 'material', 'pattern', 'style', 'season', 'description', 'wearCount', 'createdAt', 'updatedAt']) : true;
+      let countOk = !isCreate || data.keys().size() == 14;
+      
+      let typesOk = (
+        (!('image' in data) || (data.image is string && data.image.size() <= 1048576)) && // Max 1MB
+        (!('category' in data) || (data.category is string && data.category.size() <= 50)) &&
+        (!('silhouette' in data) || (data.silhouette is string && data.silhouette.size() <= 100)) &&
+        (!('name' in data) || (data.name is string && data.name.size() <= 200)) &&
+        (!('color' in data) || (data.color is string && data.color.size() <= 50)) &&
+        (!('hexColor' in data) || (data.hexColor is string && data.hexColor.size() <= 10)) &&
+        (!('material' in data) || (data.material is string && data.material.size() <= 100)) &&
+        (!('pattern' in data) || (data.pattern is string && data.pattern.size() <= 100)) &&
+        (!('style' in data) || (data.style is string && data.style.size() <= 100)) &&
+        (!('season' in data) || (data.season is string && data.season.size() <= 50)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+        (!('wearCount' in data) || (data.wearCount is number && data.wearCount >= 0)) &&
+        (!('createdAt' in data) || data.createdAt is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp)
+      );
+      
+      return hasRequired && countOk && typesOk;
+    }
+
+    function isValidChatSession(data, isCreate) {
+      let hasRequired = isCreate ? data.keys().hasAll(['role', 'text', 'timestamp']) : true;
+      let countOk = !isCreate || (data.keys().size() == 3 || data.keys().size() == 4);
+      let typesOk = (
+        (!('role' in data) || (data.role is string && data.role.size() <= 20)) &&
+        (!('text' in data) || (data.text is string && data.text.size() <= 5000)) &&
+        (!('itemIds' in data) || (data.itemIds is list && data.itemIds.size() <= 20)) &&
+        (!('timestamp' in data) || data.timestamp is timestamp)
+      );
+      return hasRequired && countOk && typesOk;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Users shouldn't list all users
+      allow delete: if false; 
+      allow create: if isOwner(userId)
+                    && isValidId(userId)
+                    && isValidUser(incoming(), true)
+                    && incoming().createdAt == request.time
+                    && incoming().updatedAt == request.time
+                    && incoming().email == request.auth.token.email;
+      allow update: if isOwner(userId)
+                    && isValidId(userId)
+                    && isValidUser(incoming(), false)
+                    && incoming().updatedAt == request.time
+                    && incoming().createdAt == existing().createdAt
+                    && incoming().email == existing().email
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['memory', 'updatedAt']);
+
+      match /wardrobe/{itemId} {
+        allow read: if isOwner(userId) && isValidId(userId);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(itemId);
+        allow create: if isOwner(userId)
+                      && isValidId(userId)
+                      && isValidId(itemId)
+                      && isValidWardrobeItem(incoming(), true)
+                      && incoming().createdAt == request.time
+                      && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId)
+                      && isValidId(userId)
+                      && isValidId(itemId)
+                      && isValidWardrobeItem(incoming(), false)
+                      && incoming().updatedAt == request.time
+                      && incoming().createdAt == existing().createdAt
+                      && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'color', 'hexColor', 'style', 'season', 'wearCount', 'description', 'updatedAt', 'image', 'silhouette', 'material', 'pattern']);
+      }
+
+      match /chats/{messageId} {
+        allow read: if isOwner(userId) && isValidId(userId);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(messageId);
+        allow create: if isOwner(userId)
+                      && isValidId(userId)
+                      && isValidId(messageId)
+                      && isValidChatSession(incoming(), true);
+        allow update: if false; // Chats are immutable
+      }
+    }
+  }
+}

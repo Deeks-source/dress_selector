@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { ClothingItem, ClothingCategory } from '../types';
 import { analyzeClothingImage } from '../services/geminiService';
-import { Loader2, CheckCircle2, AlertCircle, X, ImageIcon, Plus, Scissors, ArrowRight } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, X, ImageIcon, Plus, Scissors, ArrowRight, Wand2 } from 'lucide-react';
 
 interface OnboardingProps {
   onItemsAdded: (items: ClothingItem[]) => void;
@@ -112,7 +112,9 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
         const analysis = await analyzeClothingImage(pending.base64);
         if (analysis && analysis.length > 0) {
           for (const res of analysis) {
-            const croppedBase64 = await cropItem(pending.base64, res.box_2d);
+            const croppedBase64 = Array.isArray(res.box_2d) && res.box_2d.length === 4 
+              ? await cropItem(pending.base64, res.box_2d)
+              : pending.base64;
             successfullyProcessed.push({
               id: Math.random().toString(36).substr(2, 9),
               image: croppedBase64,
@@ -148,73 +150,82 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-32 px-4">
-      <div className="text-center space-y-4">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-2xl text-xs font-black uppercase tracking-widest shadow-sm">
-          <Scissors size={14} /> Style Extraction
+    <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-[800ms] pb-32 px-4">
+      <div className="text-center space-y-3 sm:space-y-4">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-[#A388EE] text-black rounded-2xl sm:rounded-[2rem] text-[10px] sm:text-xs font-black uppercase tracking-wider  border border-black">
+          <Scissors size={14} className="" strokeWidth={2.5}/> Style Extraction
         </div>
-        <h2 className="text-5xl font-black text-slate-900 tracking-tighter leading-tight">Digital Boutique</h2>
-        <p className="text-slate-500 text-xl font-medium max-w-lg mx-auto leading-relaxed">
+        <h2 className="text-3xl sm:text-5xl font-black text-black tracking-tight leading-tight">Digital Boutique</h2>
+        <p className="text-black text-sm sm:text-base font-black max-w-lg mx-auto leading-relaxed">
           Upload clear photos. AI will extract your clothes and design your boutique.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <div className={`p-6 rounded-[2.5rem] border-4 flex items-center justify-between transition-all ${hasShirt ? 'border-green-100 bg-green-50' : 'border-slate-100 bg-white'}`}>
+      <div className="grid grid-cols-2 gap-4 sm:gap-6">
+        <div className={`p-4 sm:p-5 rounded-3xl border flex items-center justify-between transition-all ${hasShirt ? 'border-transparent bg-[#A388EE]  text-black' : 'border-black bg-white shadow-[4px_4px_0_0_#000]'}`}>
           <div className="flex flex-col">
-            <span className={`text-sm font-black tracking-tight ${hasShirt ? 'text-green-700' : 'text-slate-400'}`}>SHIRTS</span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{hasShirt ? 'Ready' : 'Missing'}</span>
+            <span className={`text-xs sm:text-sm font-black tracking-tight ${hasShirt ? 'text-black' : 'text-black'}`}>SHIRTS</span>
+            <span className={`text-[9px] font-black uppercase tracking-wider mt-1 ${hasShirt ? 'text-black/70' : 'text-black'}`}>{hasShirt ? 'Ready' : 'Missing'}</span>
           </div>
-          {hasShirt ? <CheckCircle2 size={32} className="text-green-500" /> : <div className="w-8 h-8 rounded-full border-4 border-slate-100" />}
+          {hasShirt ? <CheckCircle2 size={24} className="text-black sm:w-7 sm:h-7" /> : <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-2xl sm:rounded-[2rem] border-2 border-black border-dashed" />}
         </div>
-        <div className={`p-6 rounded-[2.5rem] border-4 flex items-center justify-between transition-all ${hasPants ? 'border-green-100 bg-green-50' : 'border-slate-100 bg-white'}`}>
+        <div className={`p-4 sm:p-5 rounded-3xl border flex items-center justify-between transition-all ${hasPants ? 'border-transparent bg-[#A388EE]  text-black' : 'border-black bg-white shadow-[4px_4px_0_0_#000]'}`}>
           <div className="flex flex-col">
-            <span className={`text-sm font-black tracking-tight ${hasPants ? 'text-green-700' : 'text-slate-400'}`}>PANTS</span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{hasPants ? 'Ready' : 'Missing'}</span>
+            <span className={`text-xs sm:text-sm font-black tracking-tight ${hasPants ? 'text-black' : 'text-black'}`}>PANTS</span>
+            <span className={`text-[9px] font-black uppercase tracking-wider mt-1 ${hasPants ? 'text-black/70' : 'text-black'}`}>{hasPants ? 'Ready' : 'Missing'}</span>
           </div>
-          {hasPants ? <CheckCircle2 size={32} className="text-green-500" /> : <div className="w-8 h-8 rounded-full border-4 border-slate-100" />}
+          {hasPants ? <CheckCircle2 size={24} className="text-black sm:w-7 sm:h-7" /> : <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-2xl sm:rounded-[2rem] border-2 border-black border-dashed" />}
         </div>
       </div>
 
       {!analyzing && (
         <div className="relative group">
           <input type="file" multiple ref={fileInputRef} accept="image/*" onChange={handleFileSelection} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-          <div className="border-4 border-dashed border-slate-200 rounded-[3rem] p-20 text-center transition-all group-hover:border-indigo-400 group-hover:bg-indigo-50/30 group-hover:scale-[1.01]">
-            <div className="mx-auto w-24 h-24 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white mb-8 shadow-2xl shadow-indigo-200 group-hover:rotate-6 transition-transform">
-              <Plus size={48} />
+          <div className="border border-dashed border-black rounded-[2rem] sm:rounded-[2.5rem] p-10 sm:p-16 text-center transition-all group-hover:bg-white group-hover:border-black bg-white ">
+            <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-[#A388EE] border border-white rounded-[1.5rem] flex items-center justify-center text-black mb-4 sm:mb-6  group-hover:scale-105 group-hover:rotate-3 transition-transform">
+              <Plus size={32} strokeWidth={2.5} className="sm:w-10 sm:h-10" />
             </div>
-            <h3 className="text-3xl font-black text-slate-800 tracking-tight">Select Photos</h3>
-            <p className="text-slate-400 mt-4 text-lg font-medium">Clear photos of individual items work best.</p>
+            <h3 className="text-xl sm:text-2xl font-black text-black tracking-tight">Select Photos</h3>
+            <p className="text-black mt-2 sm:mt-3 text-sm font-black">Clear photos of individual items work best.</p>
           </div>
         </div>
       )}
 
       {pendingQueue.length > 0 && (
-        <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl space-y-8">
-          <h4 className="text-2xl font-black text-slate-800 flex items-center gap-4">
-            <ImageIcon size={28} className="text-indigo-500" />
-            Queued for Boutique ({pendingQueue.length})
+        <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border-[3px] border-black  space-y-6">
+          <h4 className="text-lg sm:text-xl font-black text-black flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-[#A388EE] text-black flex items-center justify-center text-sm font-black">{pendingQueue.length}</div>
+            Queued for Boutique
           </h4>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
             {pendingQueue.map((pending, idx) => (
-              <div key={pending.id} className={`aspect-[4/5] rounded-[2rem] overflow-hidden relative border-4 transition-all duration-500 ${analyzing && processingIndex === idx ? 'border-indigo-500 scale-110 shadow-3xl z-10' : 'border-slate-50 opacity-80'}`}>
-                <img src={pending.base64} alt="Pending" className={`w-full h-full object-cover ${analyzing && processingIndex !== idx ? 'blur-md' : ''}`} />
+              <div key={pending.id} className={`aspect-[4/5] rounded-2xl overflow-hidden relative border-[3px] border-black transition-all duration-500  ${analyzing && processingIndex === idx ? 'border-black shadow-[2px_2px_0_0_#000] shadow-[#6B4EFF]/10 scale-[1.02] z-10' : ''}`}>
+                <img src={pending.base64} alt="Pending" className={`w-full h-full object-cover transition-all duration-700 ${analyzing && processingIndex !== idx ? 'blur-[2px] opacity-70' : 'hover:scale-105'}`} />
                 {!analyzing && (
-                  <button onClick={() => setPendingQueue(prev => prev.filter(p => p.id !== pending.id))} className="absolute top-3 right-3 p-2.5 bg-white/90 text-rose-600 rounded-2xl hover:bg-rose-600 hover:text-white shadow-xl transition-all">
-                    <X size={18} />
+                  <button onClick={() => setPendingQueue(prev => prev.filter(p => p.id !== pending.id))} className="absolute top-2 right-2 p-1.5 bg-white/90 backdrop-blur-sm text-black border-[3px] border-black rounded-lg hover:bg-rose-50 hover:text-rose-600 transition-all ">
+                    <X size={16} strokeWidth={2.5}/>
                   </button>
+                )}
+                {analyzing && processingIndex === idx && (
+                   <div className="absolute inset-0 flex items-center justify-center bg-white/10 backdrop-blur-[1px] z-20">
+                     <div className="p-3 bg-white/90 backdrop-blur-sm rounded-2xl text-[#06D6A0]  animate-pulse border border-white">
+                        <Wand2 size={24} strokeWidth={2.5} />
+                     </div>
+                  </div>
                 )}
               </div>
             ))}
           </div>
           {analyzing && (
-            <div className="pt-6 space-y-4">
-              <div className="flex justify-between text-sm font-black text-indigo-600 uppercase tracking-widest">
+            <div className="pt-6 space-y-3">
+              <div className="flex justify-between text-[10px] font-black text-black uppercase tracking-wider">
                 <span>Designing Digital Boutique...</span>
                 <span>{Math.round(((processingIndex! + 1) / pendingQueue.length) * 100)}%</span>
               </div>
-              <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden shadow-inner">
-                <div className="bg-gradient-to-r from-indigo-500 to-indigo-700 h-full transition-all duration-1000 ease-in-out" style={{ width: `${((processingIndex! + 1) / pendingQueue.length) * 100}%` }} />
+              <div className="w-full bg-[#EAEAEA] h-3 rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-inner relative">
+                <div className="bg-[#CCFF00] h-full transition-all duration-1000 ease-in-out relative flex items-center justify-center overflow-hidden" style={{ width: `${((processingIndex! + 1) / pendingQueue.length) * 100}%` }}>
+                   <div className="absolute inset-0 w-full h-full bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] bg-[length:1.5rem_1.5rem] animate-[stripes_1s_linear_infinite]" />
+                </div>
               </div>
             </div>
           )}
@@ -222,36 +233,45 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
       )}
 
       {error && (
-        <div className="bg-rose-50 border-2 border-rose-100 text-rose-700 p-8 rounded-[2.5rem] flex items-center gap-6 animate-in slide-in-from-top-4">
-          <AlertCircle size={32} />
-          <p className="text-xl font-bold">{error}</p>
+        <div className="bg-red-50 border border-red-100 text-red-800 p-6 rounded-2xl flex items-center gap-4  animate-in slide-in-from-top-4">
+          <AlertCircle size={24} strokeWidth={2.5}/>
+          <p className="text-sm font-black">{error}</p>
         </div>
       )}
 
-      <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-full max-w-lg px-6 z-50 flex flex-col gap-4">
-        {/* Added explicit override button if items exist */}
-        {wardrobe.length > 0 && !analyzing && pendingQueue.length === 0 && (
-          <button 
-            onClick={onComplete}
-            className="flex items-center justify-center gap-2 text-indigo-600 font-black uppercase text-xs tracking-widest bg-white/80 backdrop-blur py-3 rounded-2xl border border-indigo-100 shadow-xl hover:bg-white transition-all"
-          >
-            Enter Boutique Closet <ArrowRight size={14} />
-          </button>
-        )}
+      <div className="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-xl border-t-[3px] border-black px-4 py-4 sm:py-6 z-50 flex flex-col gap-3">
+        <div className="max-w-3xl mx-auto w-full flex flex-col sm:flex-row gap-3">
+          {wardrobe.length > 0 && !analyzing && pendingQueue.length === 0 && (
+            <button 
+              onClick={onComplete}
+              className="flex-1 flex items-center justify-center gap-2 text-black font-black text-sm bg-[#EAEAEA] hover:bg-[#D0D0D0] py-4 rounded-2xl transition-all"
+            >
+              Enter Boutique <ArrowRight size={16} strokeWidth={2.5} />
+            </button>
+          )}
 
-        <button
-          onClick={startBatchProcessing}
-          disabled={analyzing || (pendingQueue.length === 0 && wardrobe.length === 0)}
-          className={`w-full py-6 rounded-[2.5rem] font-black text-2xl transition-all shadow-3xl flex items-center justify-center gap-5 active:scale-95 ${
-            analyzing 
-            ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-            : pendingQueue.length > 0 
-              ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-300 ring-8 ring-indigo-50' 
-              : wardrobe.length > 0 ? 'bg-slate-900 text-white hover:bg-black shadow-slate-200' : 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
-          }`}
-        >
-          {analyzing ? 'Processing...' : pendingQueue.length > 0 ? 'Launch Boutique' : wardrobe.length > 0 ? 'Enter Closet' : 'Add to Closet'}
-        </button>
+          <button
+            onClick={startBatchProcessing}
+            disabled={analyzing || (pendingQueue.length === 0 && wardrobe.length === 0)}
+            className={`flex-[2] py-4 rounded-2xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-2 sm:gap-3  ${
+              analyzing 
+              ? 'bg-[#EAEAEA] text-black cursor-not-allowed' 
+              : pendingQueue.length > 0 
+                ? 'bg-[#CCFF00] text-black shadow-[#6B4EFF]/20 hover:shadow-[8px_8px_0_0_#000] hover:-translate-y-0.5 active:translate-y-1 active:translate-x-1 active:shadow-none' 
+                : wardrobe.length > 0 ? 'bg-[#CCFF00] text-black shadow-[#6B4EFF]/20 hover:shadow-[8px_8px_0_0_#000] hover:-translate-y-0.5 active:translate-y-1 active:translate-x-1 active:shadow-none' : 'bg-[#EAEAEA] text-black cursor-not-allowed'
+            }`}
+          >
+            {analyzing ? (
+              <><Loader2 className="animate-spin" size={20} strokeWidth={2.5}/> Processing...</>
+            ) : pendingQueue.length > 0 ? (
+              <><Wand2 size={20} strokeWidth={2.5}/> Launch Boutique extraction</>
+            ) : wardrobe.length > 0 ? (
+              <><ArrowRight size={20} strokeWidth={2.5}/> Enter Boutique</>
+            ) : (
+              <><ImageIcon size={20} strokeWidth={2.5}/> Add to Closet ({pendingQueue.length})</>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

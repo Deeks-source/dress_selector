@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { ClothingItem, ClothingCategory, Language } from '../types';
 import ItemCard from './ItemCard';
-import { Filter, Search, PlusCircle } from 'lucide-react';
+import { Filter, Search, PlusCircle, Sparkles } from 'lucide-react';
 
 interface WardrobeGridProps {
   items: ClothingItem[];
@@ -13,7 +13,7 @@ interface WardrobeGridProps {
 }
 
 const translations = {
-  en: { title: 'My Closet', add: 'Add More', placeholder: 'Search colors, vibes, or names...', empty: 'Nothing found' },
+  en: { title: 'My Closet', add: 'Add', placeholder: 'Search colors, vibes, or names...', empty: 'Nothing found' },
   hi: { title: 'मेरी अलमारी', add: 'और जोड़ें', placeholder: 'रंग, वाइब या नाम खोजें...', empty: 'कुछ नहीं मिला' },
   es: { title: 'Mi Armario', add: 'Añadir', placeholder: 'Buscar por color, nombre o vibra...', empty: 'No hay nada' },
   fr: { title: 'Mon Placard', add: 'Ajouter', placeholder: 'Chercher couleurs, noms...', empty: 'Rien trouvé' },
@@ -38,51 +38,54 @@ const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onDelete, onUpdate, 
   const categories = ['all', ...Object.values(ClothingCategory)];
 
   return (
-    <div className="space-y-10">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="space-y-8 sm:space-y-10 relative pb-32 sm:pb-0">
+      <div className="flex flex-row items-center justify-between gap-4 pb-4">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">{t.title}</h2>
-          <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-1">{items.length} Total Items</p>
+          <h2 className="text-2xl sm:text-4xl font-black text-black tracking-tight flex items-center gap-3">
+             {t.title} <Sparkles size={24} className="text-[#FFD166]" strokeWidth={2.5} />
+          </h2>
         </div>
         <button 
           onClick={onAddMore}
-          className="flex items-center gap-3 bg-indigo-600 text-white px-8 py-4 rounded-[1.5rem] font-black text-lg hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-100 active:scale-95"
+          className="hidden sm:flex items-center justify-center gap-2 bg-[#CCFF00] text-black shadow-[4px_4px_0_0_#000] hover:shadow-[8px_8px_0_0_#000] hover:shadow-[#6B4EFF]/30 hover:-translate-y-0.5 active:translate-y-1 active:translate-x-1 active:shadow-none px-5 py-2.5 rounded-xl font-black text-sm transition-all shrink-0"
         >
-          <PlusCircle size={24} />
-          {t.add}
+          <PlusCircle size={18} strokeWidth={2.5} />
+          <span>{t.add}</span>
         </button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-6">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-indigo-500" size={24} />
-          <input 
-            type="text" 
-            placeholder={t.placeholder} 
-            className="w-full pl-14 pr-6 py-5 bg-white border-2 border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-lg font-medium shadow-sm"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar px-1">
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-4">
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar px-1 -mx-2 sm:mx-0 sm:px-0">
+          <div className="w-2 sm:hidden shrink-0"></div>
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setFilter(cat as any)}
-              className={`px-8 py-4 rounded-[1.5rem] text-sm font-black capitalize whitespace-nowrap transition-all tracking-tight ${
+              className={`px-5 sm:px-6 py-2.5 sm:py-2.5 rounded-2xl sm:rounded-[2rem] text-xs sm:text-sm font-black capitalize whitespace-nowrap transition-all ${
                 filter === cat 
-                ? 'bg-slate-900 text-white shadow-xl' 
-                : 'bg-white text-slate-500 border-2 border-slate-50 hover:border-slate-200'
+                ? 'bg-[#CCFF00] text-black shadow-[4px_4px_0_0_#000]' 
+                : 'bg-white text-black hover:text-black hover:bg-white border-[3px] border-black'
               }`}
             >
               {cat}
             </button>
           ))}
+          <div className="w-2 sm:hidden shrink-0"></div>
+        </div>
+        <div className="relative flex-1 group hidden sm:block max-w-xs ml-auto">
+          <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-black transition-colors w-4 h-4 z-10" strokeWidth={2.5} />
+          <input 
+            type="text" 
+            placeholder={t.placeholder} 
+            className="w-full pl-5 pr-10 py-2.5 bg-white border-[3px] border-black rounded-2xl sm:rounded-[2rem] transition-all text-sm font-black text-black  focus:border-black focus:shadow-[2px_2px_0_0_#000] focus:outline-none placeholder:text-black"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       </div>
 
       {filteredItems.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-10">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
           {filteredItems.map((item) => (
             <ItemCard 
               key={item.id} 
@@ -93,16 +96,17 @@ const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onDelete, onUpdate, 
           ))}
         </div>
       ) : (
-        <div className="text-center py-32 bg-white border-4 border-dashed border-slate-100 rounded-[3rem]">
-          <div className="mx-auto w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 mb-6">
-            <Filter size={48} />
+        <div className="text-center py-24 sm:py-32 bg-white border-[3px] border-black rounded-3xl ">
+          <div className="mx-auto w-20 h-20 bg-[#A388EE] text-black rounded-2xl sm:rounded-[2rem] flex items-center justify-center mb-6  border border-black">
+            <Filter size={32} strokeWidth={2.5} />
           </div>
-          <h3 className="text-slate-800 font-black text-2xl tracking-tight">{t.empty}</h3>
-          <p className="text-slate-400 max-w-xs mx-auto mt-4 text-lg font-medium">
+          <h3 className="text-black font-black text-xl tracking-tight">{t.empty}</h3>
+          <p className="text-black max-w-xs mx-auto mt-2 text-sm font-black">
             No matching clothes in your closet. Try another search.
           </p>
         </div>
       )}
+
     </div>
   );
 };

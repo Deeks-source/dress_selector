@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile containing style memory.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "memory": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of learned style facts and preferences."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "memory", "createdAt", "updatedAt"]
+    },
+    "WardrobeItem": {
+      "title": "WardrobeItem",
+      "description": "A single clothing item.",
+      "type": "object",
+      "properties": {
+        "image": { "type": "string" },
+        "category": { "type": "string" },
+        "silhouette": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "hexColor": { "type": "string" },
+        "material": { "type": "string" },
+        "pattern": { "type": "string" },
+        "style": { "type": "string" },
+        "season": { "type": "string" },
+        "description": { "type": "string" },
+        "wearCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["image", "category", "silhouette", "name", "color", "hexColor", "material", "pattern", "style", "season", "wearCount", "createdAt", "updatedAt"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "Saved chats.",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string" },
+        "text": { "type": "string" },
+        "itemIds": { "type": "array", "items": { "type": "string" } },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["role", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile with style memory."
+    },
+    "/users/{userId}/wardrobe/{itemId}": {
+      "schema": { "$ref": "#/entities/WardrobeItem" },
+      "description": "User's wardrobe items."
+    },
+    "/users/{userId}/chats/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatSession" },
+      "description": "User's chat history."
+    }
+  }
+}
