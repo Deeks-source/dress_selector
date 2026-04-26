@@ -36,7 +36,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_SIZE = 1200;
+          const MAX_SIZE = 1000;
           let width = img.width;
           let height = img.height;
           if (width > height) {
@@ -48,7 +48,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.8));
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
       };
     });
@@ -70,11 +70,22 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
         const pTop = Math.max(0, top - padding);
         const pWidth = Math.min(img.width - pLeft, width + padding * 2);
         const pHeight = Math.min(img.height - pTop, height + padding * 2);
-        canvas.width = pWidth;
-        canvas.height = pHeight;
+        
+        // Cap the crop size to ensure Firestore 1MB limit
+        const MAX_CROP = 800;
+        let finalW = pWidth;
+        let finalH = pHeight;
+        if (finalW > finalH) {
+          if (finalW > MAX_CROP) { finalH *= MAX_CROP / finalW; finalW = MAX_CROP; }
+        } else {
+          if (finalH > MAX_CROP) { finalW *= MAX_CROP / finalH; finalH = MAX_CROP; }
+        }
+
+        canvas.width = finalW;
+        canvas.height = finalH;
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, pLeft, pTop, pWidth, pHeight, 0, 0, pWidth, pHeight);
-        resolve(canvas.toDataURL('image/jpeg', 0.9));
+        ctx?.drawImage(img, pLeft, pTop, pWidth, pHeight, 0, 0, finalW, finalH);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
     });
   };
@@ -108,6 +119,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
     for (let i = 0; i < pendingQueue.length; i++) {
       setProcessingIndex(i);
       const pending = pendingQueue[i];
+      
+      // Add a small delay between requests to avoid 429 Rate Limits
+      if (i > 0) await new Promise(r => setTimeout(r, 3000));
+      
       try {
         const analysis = await analyzeClothingImage(pending.base64);
         if (analysis && analysis.length > 0) {

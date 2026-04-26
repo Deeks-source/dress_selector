@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "777684619264",
+    "project_id": "chatbot-fabfa",
+    "storage_bucket": "chatbot-fabfa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:777684619264:android:95e832da301684f8b188e5",
+        "android_client_info": {
+          "package_name": "com.example.macro_tracker_ai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "777684619264-9rvas3qsfegtatujbqsdsivkpr8lk0d6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAGZm7Zv959E0Bso3BTjXu110LsyVJAaAk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "777684619264-9rvas3qsfegtatujbqsdsivkpr8lk0d6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:777684619264:android:9feb704700fad0bdb188e5",
+        "android_client_info": {
+          "package_name": "com.stylemind.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "777684619264-9rvas3qsfegtatujbqsdsivkpr8lk0d6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAGZm7Zv959E0Bso3BTjXu110LsyVJAaAk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "777684619264-9rvas3qsfegtatujbqsdsivkpr8lk0d6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -46,9 +46,7 @@ service cloud.firestore {
     }
     
     function isValidWardrobeItem(data, isCreate) {
-      let isPartialUpdate = !isCreate;
       let hasRequired = isCreate ? data.keys().hasAll(['image', 'category', 'silhouette', 'name', 'color', 'hexColor', 'material', 'pattern', 'style', 'season', 'description', 'wearCount', 'createdAt', 'updatedAt']) : true;
-      let countOk = !isCreate || data.keys().size() == 14;
       
       let typesOk = (
         (!('image' in data) || (data.image is string && data.image.size() <= 1048576)) && // Max 1MB
@@ -67,7 +65,7 @@ service cloud.firestore {
         (!('updatedAt' in data) || data.updatedAt is timestamp)
       );
       
-      return hasRequired && countOk && typesOk;
+      return hasRequired && typesOk;
     }
 
     function isValidChatSession(data, isCreate) {

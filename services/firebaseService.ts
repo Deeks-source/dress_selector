@@ -55,17 +55,32 @@ export const syncWardrobeItem = async (userId: string, item: ClothingItem) => {
   try {
     const ref = doc(db, 'users', userId, 'wardrobe', item.id);
     const exists = (await getDoc(ref)).exists();
-    
-    const { id, ...itemData } = item;
+
+    // Explicitly pick only the fields allowed by Firestore rules.
+    // This prevents extra AI-returned fields from causing permission errors.
+    const allowedData = {
+      image: item.image ?? '',
+      name: item.name ?? 'Unnamed Item',
+      category: item.category ?? 'other',
+      silhouette: item.silhouette ?? 'tee',
+      color: item.color ?? 'Unknown',
+      hexColor: item.hexColor ?? '#CBD5E1',
+      material: item.material ?? 'Unknown',
+      pattern: item.pattern ?? 'Solid',
+      style: item.style ?? 'Casual',
+      season: item.season ?? 'All-season',
+      description: item.description ?? '',
+      wearCount: item.wearCount ?? 0,
+    };
 
     if (exists) {
       await updateDoc(ref, {
-        ...itemData,
+        ...allowedData,
         updatedAt: serverTimestamp()
       });
     } else {
       await setDoc(ref, {
-        ...itemData,
+        ...allowedData,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });

@@ -13,6 +13,7 @@ interface OutfitRecommenderProps {
   onMarkAsWorn: (itemIds: string[]) => void;
   userMemory?: string[];
   userUid?: string;
+  isKeyboardVisible?: boolean;
 }
 
 const SilhouetteIcon = ({ silhouette, color, category }: { silhouette?: string, color: string, category?: string }) => {
@@ -71,7 +72,7 @@ const SilhouetteIcon = ({ silhouette, color, category }: { silhouette?: string, 
   return <rect {...common} x="4" y="4" width="16" height="16" rx="4" />;
 };
 
-const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, language, chatHistory, setChatHistory, onMarkAsWorn, userMemory = [], userUid }) => {
+const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, language, chatHistory, setChatHistory, onMarkAsWorn, userMemory = [], userUid, isKeyboardVisible }) => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPhotos, setShowPhotos] = useState(true); // Default to photos as requested
@@ -169,7 +170,7 @@ const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, languag
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 no-scrollbar bg-white">
+      <div className={`flex-1 overflow-y-auto ${isKeyboardVisible ? 'p-2' : 'p-4 sm:p-6'} space-y-6 sm:space-y-8 no-scrollbar bg-white transition-all`}>
         {chatHistory.length === 0 && !loading && (
            <div className="h-full flex flex-col items-center justify-center text-center space-y-5">
             <div className="w-24 h-24 bg-[#A388EE] rounded-2xl sm:rounded-[2rem] flex items-center justify-center text-black">
@@ -262,7 +263,7 @@ const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, languag
       </div>
 
       {/* Input Area */}
-      <div className="p-4 sm:p-6 bg-white border-t-[3px] border-black">
+      <div className={`${isKeyboardVisible ? 'p-2' : 'p-4 sm:p-6'} bg-white border-t-[3px] border-black transition-all`}>
         <form onSubmit={handleSend} className="flex-1 flex gap-2 sm:gap-3 items-center bg-[#FFF4E0] p-1.5 rounded-[2rem] border-[3px] border-black focus-within:border-black focus-within:bg-white focus-within: transition-all">
           <input 
             type="text" 

@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">StyleMind</string>
+    <string name="title_activity_main">StyleMind</string>
+    <string name="package_name">com.stylemind.app</string>
+    <string name="custom_url_scheme">com.stylemind.app</string>
+    <string name="server_client_id">777684619264-9rvas3qsfegtatujbqsdsivkpr8lk0d6.apps.googleusercontent.com</string>
+</resources>
