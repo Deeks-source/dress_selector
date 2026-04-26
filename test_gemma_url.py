@@ -2,7 +2,7 @@ import json
 import urllib.request
 
 # Your API Key
-API_KEY = "AIzaSyC8SYovKPIF1Ivw5YTNuEe4FC0W5GHSRXE"
+API_KEY = ""
 # Correct Model Name from Google Provider
 MODEL = "gemma-4-31b-it"
 # Direct URL
