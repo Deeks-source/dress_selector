@@ -27,7 +27,7 @@ const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onDelete, onUpdate, 
   const t = translations[language];
 
   const filteredItems = items.filter(item => {
-    const matchesFilter = filter === 'all' || item.category === filter;
+    const matchesFilter = filter === 'all' || item.category.toLowerCase() === filter.toLowerCase();
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase()) ||
                         item.description.toLowerCase().includes(search.toLowerCase()) ||
                         item.color.toLowerCase().includes(search.toLowerCase()) ||

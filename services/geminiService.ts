@@ -9,7 +9,7 @@ export const analyzeClothingImage = async (base64Image: string): Promise<any[]> 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   
   const prompt = `Analyze this image and identify all distinct clothing items.
-  Format as JSON array with: name, category, silhouette, color, hexColor, material, pattern, style, season, description, box_2d (array of 4 numbers [ymin, xmin, ymax, xmax] scaled 0-1000, if uncertain return null).`;
+  Format as JSON array with: name, category (MUST be one of: shirt, pants, accessory, shoes, other), silhouette, color, hexColor, material, pattern, style, season, description, box_2d (array of 4 numbers [ymin, xmin, ymax, xmax] scaled 0-1000, if uncertain return null).`;
 
   try {
     const response = await ai.models.generateContent({

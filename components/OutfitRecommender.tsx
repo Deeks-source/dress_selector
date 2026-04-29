@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ClothingItem, Language, ChatMessage, ChatSession } from '../types';
 import { getChatStylistResponse, extractStyleMemory } from '../services/geminiService';
-import { appendMemoryFact, createSession, subscribeToSessions, subscribeToSessionMessages, syncSessionMessage, updateSessionMessageLoggedStatus } from '../services/firebaseService';
+import { appendMemoryFact, createSession, subscribeToSessions, subscribeToSessionMessages, syncSessionMessage, updateSessionMessageLoggedStatus, deleteSession } from '../services/firebaseService';
 import { Sparkles, Loader2, Send, User, Bot, CheckCircle, Camera, Image as ImageIcon, MessageSquarePlus, Menu, X, Clock, Trash2 } from 'lucide-react';
 
 interface OutfitRecommenderProps {
@@ -166,6 +166,23 @@ const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, languag
     setShowHistory(false);
   };
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!userUid || !sessionId) return;
+    
+    try {
+      await deleteSession(userUid, sessionId);
+      if (activeSessionId === sessionId) {
+        startNewChat();
+      }
+      setDeletingId(null);
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+      alert("Failed to delete chat. Please try again.");
+    }
+  };
+
   const handleLoggedItem = async (itemIds: string[], messageId: string) => {
     onMarkAsWorn(itemIds);
     if (userUid && activeSessionId) {
@@ -177,26 +194,56 @@ const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, languag
     <div className="w-full max-w-6xl mx-auto flex h-full sm:h-[600px] bg-white sm:rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:shadow-[6px_6px_0_0_#000] overflow-hidden sm:border-[3px] border-black relative">
       
       {/* Sidebar - Desktop */}
-      <div className={`hidden sm:flex flex-col w-64 border-r-[3px] border-black bg-[#F4F1FD] transition-all duration-300 ${!showHistory ? '-ml-64' : 'ml-0'}`}>
-        <div className="p-4 border-b-[3px] border-black flex justify-between items-center">
-          <h3 className="font-black text-xs uppercase tracking-widest text-black/50">Chat History</h3>
-          <button onClick={() => setShowHistory(false)} className="hover:bg-black/5 p-1 rounded-lg">
-            <X size={16} />
-          </button>
+      <div className={`hidden sm:flex flex-col w-72 border-r-[3px] border-black bg-[#F4F1FD] transition-all duration-300 ${!showHistory ? '-ml-72' : 'ml-0'}`}>
+        <div className="p-4 border-b-[3px] border-black flex justify-between items-center bg-white">
+          <h3 className="font-black text-[10px] uppercase tracking-widest text-black/50">History</h3>
+          <div className="flex gap-1">
+            <button onClick={() => setShowHistory(false)} className="hover:bg-black/5 p-1.5 rounded-lg transition-colors">
+              <X size={14} />
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-2">
           {sessions.map(s => (
-            <button 
-              key={s.id} 
-              onClick={() => setActiveSessionId(s.id)}
-              className={`w-full text-left p-3 rounded-2xl border-2 transition-all flex items-center gap-3 group ${activeSessionId === s.id ? 'bg-[#CCFF00] border-black shadow-[2px_2px_0_0_#000]' : 'bg-white border-black/10 hover:border-black'}`}
-            >
-              <Clock size={14} className="shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-black truncate">{s.title}</p>
-                <p className="text-[10px] font-bold text-black/60 truncate">{new Date(s.updatedAt).toLocaleDateString()}</p>
-              </div>
-            </button>
+            <div key={s.id} className="relative group flex items-center gap-1.5 p-1">
+              {deletingId === s.id ? (
+                <div className="flex-1 flex items-center gap-2 bg-red-50 p-2 rounded-2xl border-2 border-red-500 animate-in slide-in-from-right-2 duration-300">
+                  <p className="flex-1 text-[10px] font-black text-red-600 leading-tight">Delete chat history?</p>
+                  <button 
+                    onClick={() => handleDeleteSession(s.id)}
+                    className="p-1 px-2 bg-red-600 text-white text-[10px] font-black rounded-lg hover:bg-red-700 active:scale-95 transition-all"
+                  >
+                    YES
+                  </button>
+                  <button 
+                    onClick={() => setDeletingId(null)}
+                    className="p-1 px-2 bg-white border border-red-200 text-[10px] font-black rounded-lg hover:bg-red-50 active:scale-95 transition-all"
+                  >
+                    NO
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => setActiveSessionId(s.id)}
+                    className={`flex-1 text-left p-3 pr-10 rounded-2xl border-2 transition-all flex items-center gap-3 ${activeSessionId === s.id ? 'bg-[#CCFF00] border-black shadow-[2px_2px_0_0_#000]' : 'bg-white border-black/10 hover:border-black'}`}
+                  >
+                    <Clock size={14} className="shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black truncate">{s.title}</p>
+                      <p className="text-[10px] font-bold text-black/60 truncate">{new Date(s.updatedAt).toLocaleDateString()}</p>
+                    </div>
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setDeletingId(s.id); }}
+                    className="absolute right-3 p-2 rounded-xl bg-white border-2 border-black/10 text-black/20 hover:text-red-500 hover:border-red-500 hover:bg-red-50 transition-all z-10 sm:opacity-0 group-hover:opacity-100"
+                    title="Delete Chat"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </>
+              )}
+            </div>
           ))}
           {sessions.length === 0 && (
             <div className="p-4 text-center">
@@ -209,26 +256,54 @@ const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, languag
       {/* Sidebar - Mobile Drawer */}
       {showHistory && (
         <div className="sm:hidden absolute inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity" onClick={() => setShowHistory(false)}>
-          <div className="absolute top-0 left-0 bottom-0 w-4/5 bg-[#F4F1FD] border-r-[3px] border-black animate-in slide-in-from-left duration-300" onClick={e => e.stopPropagation()}>
-            <div className="p-6 border-b-[3px] border-black flex justify-between items-center">
-              <h3 className="font-black text-sm uppercase tracking-widest text-black">Wardrobe AI History</h3>
+          <div className="absolute top-0 left-0 bottom-0 w-[85%] bg-[#F4F1FD] border-r-[3px] border-black animate-in slide-in-from-left duration-300" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b-[3px] border-black flex justify-between items-center bg-white">
+              <h3 className="font-black text-sm uppercase tracking-widest text-black">History</h3>
               <button onClick={() => setShowHistory(false)} className="bg-white border-2 border-black p-2 rounded-xl">
                 <X size={20} />
               </button>
             </div>
-            <div className="p-4 space-y-3 overflow-y-auto h-full pb-20 no-scrollbar">
+            <div className="p-4 space-y-3 overflow-y-auto h-full pb-32 no-scrollbar">
               {sessions.map(s => (
-                <button 
-                  key={s.id} 
-                  onClick={() => { setActiveSessionId(s.id); setShowHistory(false); }}
-                  className={`w-full text-left p-4 rounded-2xl border-[3px] transition-all flex items-center gap-4 ${activeSessionId === s.id ? 'bg-[#CCFF00] border-black shadow-[4px_4px_0_0_#000]' : 'bg-white border-black shadow-[2px_2px_0_0_#000]'}`}
-                >
-                  <Clock size={18} />
-                  <div className="min-w-0">
-                    <p className="text-sm font-black truncate">{s.title}</p>
-                    <p className="text-[11px] font-bold text-black/60 uppercase">{new Date(s.updatedAt).toLocaleDateString()}</p>
-                  </div>
-                </button>
+                <div key={s.id} className="relative flex items-center p-0.5">
+                  {deletingId === s.id ? (
+                    <div className="flex-1 flex items-center gap-3 bg-red-50 p-4 rounded-2xl border-[3px] border-red-500 animate-in slide-in-from-right-4 duration-300">
+                      <p className="flex-1 text-xs font-black text-red-600 leading-tight">Delete this chat history?</p>
+                      <button 
+                        onClick={() => handleDeleteSession(s.id)}
+                        className="px-4 py-2 bg-red-600 text-white text-xs font-black rounded-xl hover:bg-red-700 active:scale-95 transition-all border-2 border-red-700"
+                      >
+                        YES
+                      </button>
+                      <button 
+                        onClick={() => setDeletingId(null)}
+                        className="px-4 py-2 bg-white border-2 border-red-200 text-xs font-black rounded-xl hover:bg-red-50 active:scale-95 transition-all"
+                      >
+                        NO
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => { setActiveSessionId(s.id); setShowHistory(false); }}
+                        className={`flex-1 text-left p-4 pr-16 rounded-2xl border-[3px] transition-all flex items-center gap-4 ${activeSessionId === s.id ? 'bg-[#CCFF00] border-black shadow-[4px_4px_0_0_#000] z-0' : 'bg-white border-black shadow-[2px_2px_0_0_#000] z-0'}`}
+                      >
+                        <Clock size={18} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-black truncate">{s.title}</p>
+                          <p className="text-[11px] font-bold text-black/60 uppercase">{new Date(s.updatedAt).toLocaleDateString()}</p>
+                        </div>
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setDeletingId(s.id); }}
+                        className="absolute right-3 p-3 rounded-xl bg-white border-2 border-black text-red-500 shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:translate-x-0.5 active:shadow-none transition-all z-10"
+                        title="Delete Chat"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </>
+                  )}
+                </div>
               ))}
             </div>
           </div>

@@ -249,7 +249,7 @@ const App: React.FC = () => {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className={`fixed bottom-0 left-0 w-full bg-white flex justify-around items-end pb-6 pt-4 px-2 z-50 rounded-t-[2.5rem] border-t-[3px] border-black shadow-[0_-10px_40px_rgba(0,0,0,0.06)] sm:hidden transition-transform duration-300 ${isKeyboardVisible ? 'translate-y-full' : 'translate-y-0'}`}>
+      <nav className={`fixed bottom-0 left-0 w-full bg-white flex justify-around items-end pb-6 pt-4 px-2 z-50 rounded-t-[2.5rem] border-t-[3px] border-black shadow-[0_-10px_40px_rgba(0,0,0,0.06)] sm:hidden transition-all duration-300 ${isKeyboardVisible ? 'translate-y-full' : 'translate-y-0'}`}>
         <button onClick={() => setView('wardrobe')} className={`flex flex-col items-center gap-1.5 w-16 ${view === 'wardrobe' ? 'text-black' : 'text-black'}`}>
           <div className={`${view === 'wardrobe' ? 'bg-[#F4F1FD] p-2 rounded-xl' : 'p-2'}`}>
              <LayoutGrid size={22} className={view === 'wardrobe' ? 'fill-current opacity-20' : ''} strokeWidth={2.5} />

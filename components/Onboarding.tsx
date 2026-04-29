@@ -52,8 +52,8 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
     return () => window.removeEventListener('paste', handlePaste);
   }, []);
 
-  const hasShirt = wardrobe.some(i => i.category === ClothingCategory.SHIRT);
-  const hasPants = wardrobe.some(i => i.category === ClothingCategory.PANTS);
+  const hasShirt = wardrobe.some(i => i.category.toLowerCase() === ClothingCategory.SHIRT.toLowerCase());
+  const hasPants = wardrobe.some(i => i.category.toLowerCase() === ClothingCategory.PANTS.toLowerCase());
   // We keep this purely as a visual indicator for the user to help them get started
   const isRecommendedMet = hasShirt && hasPants;
 
@@ -145,11 +145,23 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
             const croppedBase64 = Array.isArray(res.box_2d) && res.box_2d.length === 4 
               ? await cropItem(pending.base64, res.box_2d)
               : pending.base64;
+            const rawCategory = (res.category || '').toLowerCase();
+            let category = ClothingCategory.OTHER;
+            if (rawCategory.includes('shirt') || rawCategory.includes('top') || rawCategory.includes('hoodie') || rawCategory.includes('sweater')) {
+              category = ClothingCategory.SHIRT;
+            } else if (rawCategory.includes('pant') || rawCategory.includes('jean') || rawCategory.includes('short') || rawCategory.includes('trouser')) {
+              category = ClothingCategory.PANTS;
+            } else if (rawCategory.includes('shoe') || rawCategory.includes('sneaker') || rawCategory.includes('boot')) {
+              category = ClothingCategory.SHOES;
+            } else if (rawCategory.includes('accessory') || rawCategory.includes('bag') || rawCategory.includes('hat') || rawCategory.includes('watch')) {
+              category = ClothingCategory.ACCESSORY;
+            }
+
             successfullyProcessed.push({
               id: Math.random().toString(36).substr(2, 9),
               image: croppedBase64,
               name: res.name || 'Unnamed Item',
-              category: (res.category as ClothingCategory) || ClothingCategory.OTHER,
+              category: category,
               silhouette: res.silhouette || 'tee',
               color: res.color || 'Unknown',
               hexColor: res.hexColor || '#CBD5E1',
@@ -207,7 +219,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-[800ms] pb-32 px-4">
+    <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-[800ms] pb-[240px] sm:pb-32 px-4">
       <div className="text-center space-y-3 sm:space-y-4">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-[#A388EE] text-black rounded-2xl sm:rounded-[2rem] text-[10px] sm:text-xs font-black uppercase tracking-wider  border border-black">
           <Scissors size={14} className="" strokeWidth={2.5}/> Style Extraction
@@ -243,8 +255,8 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
               <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-[#A388EE] border border-white rounded-[1.5rem] flex items-center justify-center text-black mb-4 sm:mb-6  group-hover:scale-105 group-hover:rotate-3 transition-transform">
                 <Plus size={32} strokeWidth={2.5} className="sm:w-10 sm:h-10" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-black text-black tracking-tight">Select Photos</h3>
-              <p className="text-black mt-2 sm:mt-3 text-sm font-black">Clear photos of individual items work best.</p>
+              <h3 className="text-xl sm:text-2xl font-black text-black tracking-tight">Select photos or paste it</h3>
+              <p className="text-black mt-2 sm:mt-3 text-xs sm:text-sm font-black">Clear individual photos work best.</p>
             </div>
           </div>
 
@@ -254,7 +266,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
               className="flex-1 bg-white border-[3px] border-black p-4 rounded-2xl font-black text-black flex items-center justify-center gap-3 hover:bg-[#F4F1FD] transition-all shadow-[4px_4px_0_0_#000] active:translate-y-1 active:translate-x-1 active:shadow-none"
             >
               <ClipboardPaste size={20} className="text-[#A388EE]" strokeWidth={2.5} />
-              <span>Paste from Clipboard (Ctrl+V)</span>
+              <span>Paste from Clipboard</span>
             </button>
           </div>
         </div>
@@ -308,36 +320,27 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-xl border-t-[3px] border-black px-4 py-4 sm:py-6 z-50 flex flex-col gap-3">
-        <div className="max-w-3xl mx-auto w-full flex flex-col sm:flex-row gap-3">
-          {wardrobe.length > 0 && !analyzing && pendingQueue.length === 0 && (
-            <button 
-              onClick={onComplete}
-              className="flex-1 flex items-center justify-center gap-2 text-black font-black text-sm bg-[#EAEAEA] hover:bg-[#D0D0D0] py-4 rounded-2xl transition-all"
-            >
-              Enter Boutique <ArrowRight size={16} strokeWidth={2.5} />
-            </button>
-          )}
-
+      <div className="fixed bottom-[105px] sm:bottom-0 left-0 w-full bg-white/95 backdrop-blur-xl border-t-[3px] border-black px-4 py-3 sm:py-6 z-40 flex flex-col gap-3 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
+        <div className="max-w-3xl mx-auto w-full">
           <button
-            onClick={startBatchProcessing}
+            onClick={pendingQueue.length > 0 ? startBatchProcessing : onComplete}
             disabled={analyzing || (pendingQueue.length === 0 && wardrobe.length === 0)}
-            className={`flex-[2] py-4 rounded-2xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-2 sm:gap-3  ${
+            className={`w-full py-4 rounded-2xl font-black text-base sm:text-lg transition-all border-[3px] border-black flex items-center justify-center gap-3 ${
               analyzing 
               ? 'bg-[#EAEAEA] text-black cursor-not-allowed' 
               : pendingQueue.length > 0 
-                ? 'bg-[#CCFF00] text-black shadow-[#6B4EFF]/20 hover:shadow-[8px_8px_0_0_#000] hover:-translate-y-0.5 active:translate-y-1 active:translate-x-1 active:shadow-none' 
-                : wardrobe.length > 0 ? 'bg-[#CCFF00] text-black shadow-[#6B4EFF]/20 hover:shadow-[8px_8px_0_0_#000] hover:-translate-y-0.5 active:translate-y-1 active:translate-x-1 active:shadow-none' : 'bg-[#EAEAEA] text-black cursor-not-allowed'
+                ? 'bg-[#CCFF00] text-black shadow-[4px_4px_0_0_#000] hover:-translate-y-0.5 active:translate-y-0.5 active:translate-x-0.5 active:shadow-none' 
+                : wardrobe.length > 0 
+                  ? 'bg-[#CCFF00] text-black shadow-[4px_4px_0_0_#000] hover:-translate-y-0.5 active:translate-y-0.5 active:translate-x-0.5 active:shadow-none' 
+                  : 'bg-[#EAEAEA] text-zinc-400 cursor-not-allowed opacity-50'
             }`}
           >
             {analyzing ? (
-              <><Loader2 className="animate-spin" size={20} strokeWidth={2.5}/> Processing...</>
+              <><Loader2 className="animate-spin" size={24} strokeWidth={2.5}/> Processing...</>
             ) : pendingQueue.length > 0 ? (
-              <><Wand2 size={20} strokeWidth={2.5}/> Launch Boutique extraction</>
-            ) : wardrobe.length > 0 ? (
-              <><ArrowRight size={20} strokeWidth={2.5}/> Enter Boutique</>
+              <><Wand2 size={24} strokeWidth={2.5}/> Launch Boutique Extraction</>
             ) : (
-              <><ImageIcon size={20} strokeWidth={2.5}/> Add to Closet ({pendingQueue.length})</>
+              <><ArrowRight size={24} strokeWidth={2.5}/> {wardrobe.length > 0 ? 'Enter Boutique' : 'Add Items to Start'}</>
             )}
           </button>
         </div>
