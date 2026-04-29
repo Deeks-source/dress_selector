@@ -79,7 +79,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
   return (
     <div className="group bg-white rounded-3xl sm:rounded-[2.5rem] border-[3px] border-black  overflow-hidden hover:shadow-[6px_6px_0_0_#000] transition-all duration-500">
       {/* Visual Area */}
-      <div className="aspect-[4/5] relative bg-[#FFF4E0] flex flex-col p-3 sm:p-6 pb-4 sm:pb-6">
+      <div className="aspect-[4/5] relative bg-[#FFF4E0] flex flex-col p-2.5 sm:p-6 pb-4 sm:pb-6">
         
         {showPhoto ? (
           /* Real Photo (Reality Mode) */
@@ -90,24 +90,24 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
               className="w-full h-full object-cover"
             />
             {/* Overlay buttons to remain accessible */}
-            <div className="absolute top-4 left-4 sm:top-6 sm:left-6 right-4 sm:right-6 flex justify-between items-start z-20">
-              <div className="flex flex-col gap-2">
-                <span className="px-2 py-1.5 sm:px-4 sm:py-2 bg-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider rounded-2xl text-black border-[3px] border-black shadow-[4px_4px_0_0_#000]">
+            <div className="absolute top-2 left-2 sm:top-6 sm:left-6 right-2 sm:right-6 flex justify-between items-start z-20">
+              <div className="flex flex-col gap-1.5 sm:gap-2 min-w-0">
+                <span className="px-2 py-1 sm:px-4 sm:py-2 bg-white text-[9px] sm:text-[11px] font-black uppercase tracking-wider rounded-xl sm:rounded-2xl text-black border-[2px] sm:border-[3px] border-black shadow-[2px_2px_0_0_#000] sm:shadow-[4px_4px_0_0_#000] truncate">
                   {item.category}
                 </span>
-                <span className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-[#CCFF00] text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-xl text-black border-[3px] border-black shadow-[2px_2px_0_0_#000] w-fit">
-                  Worn {item.wearCount || 0}x
+                <span className="px-2 py-1 sm:px-3 sm:py-1.5 bg-[#CCFF00] text-[8px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg sm:rounded-xl text-black border-[2px] sm:border-[3px] border-black shadow-[2px_2px_0_0_#000] w-fit">
+                  {item.wearCount || 0}x Worn
                 </span>
               </div>
               <button 
                 onClick={() => setShowPhoto(false)}
-                className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border-[3px] border-black active:translate-y-1 active:translate-x-1 active:shadow-none transition-all outline-none bg-white text-black shadow-[4px_4px_0_0_#000] hover:bg-gray-50`}
+                className={`p-1.5 sm:p-2.5 rounded-lg sm:rounded-2xl border-[2px] sm:border-[3px] border-black active:translate-y-0.5 sm:active:translate-y-1 active:translate-x-0.5 sm:active:translate-x-1 active:shadow-none transition-all outline-none bg-white text-black shadow-[2px_2px_0_0_#000] sm:shadow-[4px_4px_0_0_#000] hover:bg-gray-50`}
                 title="Switch to Studio Mode"
               >
-                <Sparkles size={18} strokeWidth={2.5}/>
+                <Sparkles size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5}/>
               </button>
             </div>
-            <span className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 px-2 py-1.5 sm:px-4 sm:py-2 bg-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider rounded-2xl text-black border-[3px] border-black shadow-[4px_4px_0_0_#000]">
+            <span className="absolute bottom-2 left-2 sm:bottom-6 sm:left-6 px-2 py-1 sm:px-4 sm:py-2 bg-white text-[9px] sm:text-[11px] font-black uppercase tracking-wider rounded-xl sm:rounded-2xl text-black border-[2px] sm:border-[3px] border-black shadow-[2px_2px_0_0_#000] sm:shadow-[4px_4px_0_0_#000]">
               Original
             </span>
           </div>
@@ -115,26 +115,26 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
           /* Digital Twin (Studio Mode) */
           <div className="w-full h-full flex flex-col justify-between animate-in fade-in zoom-in-95 duration-300 relative z-10">
             <div className="flex justify-between items-start">
-              <div className="flex flex-col gap-2">
-                <span className="px-2 py-1.5 sm:px-4 sm:py-2 bg-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider rounded-2xl text-black border-[3px] border-black shadow-[4px_4px_0_0_#000]">
+              <div className="flex flex-col gap-1.5 sm:gap-2 min-w-0">
+                <span className="px-2 py-1 sm:px-4 sm:py-2 bg-white text-[9px] sm:text-[11px] font-black uppercase tracking-wider rounded-xl sm:rounded-2xl text-black border-[2px] sm:border-[3px] border-black shadow-[2px_2px_0_0_#000] sm:shadow-[4px_4px_0_0_#000] truncate">
                   {item.category}
                 </span>
-                <span className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-[#CCFF00] text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-xl text-black border-[3px] border-black shadow-[2px_2px_0_0_#000] w-fit">
-                  Worn {item.wearCount || 0}x
+                <span className="px-2 py-1 sm:px-3 sm:py-1.5 bg-[#CCFF00] text-[8px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg sm:rounded-xl text-black border-[2px] sm:border-[3px] border-black shadow-[2px_2px_0_0_#000] w-fit">
+                  {item.wearCount || 0}x Worn
                 </span>
               </div>
               <button 
                 onClick={() => setShowPhoto(true)}
-                className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border-[3px] border-black active:translate-y-1 active:translate-x-1 active:shadow-none transition-all outline-none bg-white text-black shadow-[4px_4px_0_0_#000] hover:bg-gray-50`}
+                className={`p-1.5 sm:p-2.5 rounded-lg sm:rounded-2xl border-[2px] sm:border-[3px] border-black active:translate-y-0.5 sm:active:translate-y-1 active:translate-x-0.5 sm:active:translate-x-1 active:shadow-none transition-all outline-none bg-white text-black shadow-[2px_2px_0_0_#000] sm:shadow-[4px_4px_0_0_#000] hover:bg-gray-50`}
                 title="View Actual Photo"
               >
-                <Camera size={18} strokeWidth={2.5}/>
+                <Camera size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5}/>
               </button>
             </div>
             
-            <div className="flex-1 flex flex-col items-center justify-center -mt-4">
-              <div className="w-[70px] h-[70px] sm:w-[140px] sm:h-[140px] relative flex items-center justify-center">
-                <svg viewBox="0 0 24 24" className="w-full h-full opacity-100 filter drop-shadow-[4px_4px_0_rgba(0,0,0,1)]">
+            <div className="flex-1 flex flex-col items-center justify-center sm:-mt-4">
+              <div className="w-[85px] h-[85px] sm:w-[140px] sm:h-[140px] relative flex items-center justify-center p-2">
+                <svg viewBox="0 0 24 24" className="w-full h-full opacity-100 filter drop-shadow-[3px_3px_0_rgba(0,0,0,1)] sm:drop-shadow-[4px_4px_0_rgba(0,0,0,1)]">
                   <SilhouetteIcon silhouette={item.silhouette} color={item.hexColor} category={item.category} />
                 </svg>
               </div>
@@ -148,7 +148,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
       </div>
 
       {/* Info Area */}
-      <div className="p-3 sm:p-6 space-y-3 sm:space-y-4 bg-white flex flex-col justify-between flex-1">
+      <div className="p-3 sm:p-6 space-y-2.5 sm:space-y-4 bg-white flex flex-col justify-between flex-1">
         {isEditing ? (
           <div className="space-y-4 animate-in fade-in duration-300">
              <div>
@@ -157,43 +157,43 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
                 type="text"
                 value={editData.name}
                 onChange={(e) => setEditData({...editData, name: e.target.value})}
-                className="w-full text-sm sm:text-base font-black bg-white border-[3px] border-black px-4 py-3 focus:bg-white focus:border-black focus: outline-none rounded-xl transition-all"
+                className="w-full text-xs sm:text-base font-black bg-white border-[2px] sm:border-[3px] border-black px-3 py-2 sm:px-4 sm:py-3 focus:bg-white focus:border-black focus: outline-none rounded-lg sm:rounded-xl transition-all"
               />
             </div>
             <div className="flex gap-2 sm:gap-3 pt-2">
-              <button onClick={handleSave} className="flex-1 bg-[#CCFF00] text-black shadow-[4px_4px_0_0_#000] active:translate-y-1 active:translate-x-1 active:shadow-none hover:bg-[#5A3EE0] hover:shadow-[8px_8px_0_0_#000] py-3 rounded-xl font-black text-xs transition-all">Save</button>
-              <button onClick={() => setIsEditing(false)} className="flex-1 bg-white text-black border-[3px] border-black active:translate-y-1 active:translate-x-1 active:shadow-none hover:bg-white py-3 rounded-xl font-black text-xs transition-all">Cancel</button>
+              <button onClick={handleSave} className="flex-1 bg-[#CCFF00] text-black shadow-[2px_2px_0_0_#000] sm:shadow-[4px_4px_0_0_#000] active:translate-y-0.5 sm:active:translate-y-1 active:translate-x-0.5 sm:active:translate-x-1 active:shadow-none hover:bg-white hover:text-black py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-black text-[10px] sm:text-xs transition-all border-[2px] sm:border-[3px] border-black">Save</button>
+              <button onClick={() => setIsEditing(false)} className="flex-1 bg-white text-black border-[2px] sm:border-[3px] border-black active:translate-y-0.5 sm:active:translate-y-1 active:translate-x-0.5 sm:active:translate-x-1 active:shadow-none py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-black text-[10px] sm:text-xs transition-all">Cancel</button>
             </div>
           </div>
         ) : (
           <>
             <div className="flex flex-col flex-1 min-w-0">
-              <h4 className="text-lg sm:text-[22px] font-black text-black leading-[1.1] mb-2 line-clamp-2 break-words whitespace-normal">{item.name}</h4>
-              <p className="text-[11px] sm:text-[13px] font-black text-black line-clamp-2 leading-snug">
+              <h4 className="text-sm sm:text-[22px] font-black text-black leading-tight mb-1 sm:mb-2 line-clamp-2 break-words whitespace-normal">{item.name}</h4>
+              <p className="text-[10px] sm:text-[13px] font-black text-black/60 line-clamp-2 leading-tight">
                 {item.description}
               </p>
-              <div className="flex flex-row gap-2 sm:gap-3 pt-2 sm:pt-4">
-                <button onClick={() => setIsEditing(true)} className="p-2 sm:p-2.5 bg-white border-[3px] border-black text-black rounded-[14px] hover:bg-gray-50 transition-all active:translate-y-1 active:translate-x-1 active:shadow-none outline-none">
-                  <Edit3 size={18} strokeWidth={2.5}/>
+              <div className="flex flex-row gap-2 sm:gap-3 pt-1.5 sm:pt-4">
+                <button onClick={() => setIsEditing(true)} className="p-1.5 sm:p-2.5 bg-white border-[2px] sm:border-[3px] border-black text-black rounded-lg sm:rounded-[14px] hover:bg-gray-50 transition-all active:translate-y-0.5 sm:active:translate-y-1 active:translate-x-0.5 sm:active:translate-x-1 active:shadow-none outline-none">
+                  <Edit3 size={14} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5}/>
                 </button>
-                <button onClick={() => onDelete(item.id)} className="p-2 sm:p-2.5 bg-white border-[3px] border-black text-black rounded-[14px] hover:bg-gray-50 transition-all active:translate-y-1 active:translate-x-1 active:shadow-none outline-none">
-                  <Trash2 size={18} strokeWidth={2.5}/>
+                <button onClick={() => onDelete(item.id)} className="p-1.5 sm:p-2.5 bg-white border-[2px] sm:border-[3px] border-black text-black rounded-lg sm:rounded-[14px] hover:bg-gray-50 transition-all active:translate-y-0.5 sm:active:translate-y-1 active:translate-x-0.5 sm:active:translate-x-1 active:shadow-none outline-none">
+                  <Trash2 size={14} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5}/>
                 </button>
               </div>
             </div>
             
-            <div className="flex flex-col gap-2 sm:gap-3 pt-2 sm:pt-3 mt-1 sm:pt-4 sm:mt-2 border-t-[3px] border-black">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full shrink-0 border-[3px] border-black" style={{ backgroundColor: item.hexColor }} />
-                <span className="text-xs sm:text-[14px] font-black leading-none text-black truncate">{item.color}</span>
+            <div className="flex flex-col gap-1.5 sm:gap-3 pt-2 sm:pt-3 mt-1 sm:pt-4 sm:mt-2 border-t-[2px] sm:border-t-[3px] border-black">
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div className="w-3 h-3 sm:w-5 sm:h-5 rounded-full shrink-0 border-[2px] sm:border-[3px] border-black" style={{ backgroundColor: item.hexColor }} />
+                <span className="text-[10px] sm:text-[14px] font-black leading-none text-black truncate capitalize">{item.color}</span>
               </div>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Box size={20} className="text-black shrink-0" strokeWidth={2.5}/>
-                <span className="text-xs sm:text-[14px] font-black leading-none text-black truncate">{item.material}</span>
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <Box size={14} className="sm:w-[20px] sm:h-[20px] text-black shrink-0" strokeWidth={2.5}/>
+                <span className="text-[10px] sm:text-[14px] font-black leading-none text-black truncate capitalize">{item.material}</span>
               </div>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Tag size={18} className="text-black shrink-0" strokeWidth={2.5}/>
-                <span className="text-xs sm:text-[14px] font-black leading-none text-black truncate">Worn {item.wearCount || 0} times</span>
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <Tag size={12} className="sm:w-[18px] sm:h-[18px] text-black shrink-0" strokeWidth={2.5}/>
+                <span className="text-[10px] sm:text-[14px] font-black leading-none text-black truncate">Worn {item.wearCount || 0} times</span>
               </div>
             </div>
           </>

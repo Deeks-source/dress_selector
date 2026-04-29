@@ -173,7 +173,7 @@ const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, languag
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto flex h-[calc(100dvh-120px)] sm:h-[600px] bg-white sm:rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:shadow-[6px_6px_0_0_#000] overflow-hidden border-y-[3px] sm:border-[3px] border-black relative">
+    <div className="w-full max-w-6xl mx-auto flex h-full sm:h-[600px] bg-white sm:rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:shadow-[6px_6px_0_0_#000] overflow-hidden sm:border-[3px] border-black relative">
       
       {/* Sidebar - Desktop */}
       <div className={`hidden sm:flex flex-col w-64 border-r-[3px] border-black bg-[#F4F1FD] transition-all duration-300 ${!showHistory ? '-ml-64' : 'ml-0'}`}>

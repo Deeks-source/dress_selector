@@ -85,7 +85,7 @@ const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onDelete, onUpdate, 
       </div>
 
       {filteredItems.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
           {filteredItems.map((item) => (
             <ItemCard 
               key={item.id} 

@@ -2,8 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ClothingItem, ClothingCategory, ChatMessage, DesignerProduct, PriceTier } from "../types";
 
-// Official Gemma 4 31B Instruction model for high-quality reasoning and style analysis
-const GEMMA_MODEL = 'gemma-4-31b-it';
+// Using Gemini 3 Flash for high-speed styling intelligence
+const STYLIST_MODEL = 'gemini-3-flash-preview';
 
 export const analyzeClothingImage = async (base64Image: string): Promise<any[]> => {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -13,7 +13,7 @@ export const analyzeClothingImage = async (base64Image: string): Promise<any[]> 
 
   try {
     const response = await ai.models.generateContent({
-      model: GEMMA_MODEL,
+      model: STYLIST_MODEL,
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Image.split(',')[1] || base64Image } },
@@ -24,11 +24,10 @@ export const analyzeClothingImage = async (base64Image: string): Promise<any[]> 
         responseMimeType: "application/json",
       }
     });
-    // Accessing .text property directly as per @google/genai documentation
     const text = response.text; 
     return text ? JSON.parse(text) : [];
   } catch (e) {
-    console.error("Gemma Image Analysis Error:", e);
+    console.error("AI Image Analysis Error:", e);
     return [];
   }
 };
@@ -42,7 +41,7 @@ export const getChatStylistResponse = async (
 ): Promise<{ text: string; itemIds?: string[] } | null> => {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-  const contextPrompt = `You are a stylish best friend and fashion expert powered by Gemma 2. 
+  const contextPrompt = `You are a stylish best friend and fashion expert. 
   USER PREFERENCES/PROFILE FACTS: ${JSON.stringify(userMemory)}
   WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color })))}.
   
@@ -58,7 +57,7 @@ export const getChatStylistResponse = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: GEMMA_MODEL,
+      model: STYLIST_MODEL,
       contents: contents as any,
       config: { 
         responseMimeType: "application/json",
@@ -68,7 +67,7 @@ export const getChatStylistResponse = async (
     const text = response.text;
     return text ? JSON.parse(text) : null;
   } catch (e) {
-    console.error("Gemma Stylist Error:", e);
+    console.error("AI Stylist Error:", e);
     return null;
   }
 };
@@ -89,14 +88,14 @@ export const extractStyleMemory = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: GEMMA_MODEL,
+      model: STYLIST_MODEL,
       contents: prompt,
       config: { responseMimeType: "application/json" }
     });
     const text = response.text;
     return text ? JSON.parse(text) : [];
   } catch (e) {
-    console.error("Gemma Memory Extraction Error:", e);
+    console.error("AI Memory Extraction Error:", e);
     return [];
   }
 };
@@ -136,7 +135,7 @@ export const getShoppingSuggestions = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: GEMMA_MODEL,
+      model: STYLIST_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -147,7 +146,7 @@ export const getShoppingSuggestions = async (
     const text = response.text;
     return text ? JSON.parse(text) : null;
   } catch (e) {
-    console.error("Gemma Designer Error:", e);
+    console.error("AI Designer Error:", e);
     return null;
   }
 };

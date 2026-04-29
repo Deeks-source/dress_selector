@@ -131,6 +131,29 @@ const App: React.FC = () => {
     }
   };
 
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const initialHeight = window.innerHeight;
+    const handleResize = () => {
+      const currentHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      // Use a slightly more lenient threshold for keyboard detection
+      setIsKeyboardVisible(currentHeight < initialHeight * 0.85);
+    };
+    
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+    }
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+      }
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   const t = translations[language] || translations['en'];
 
   if (isInitializing) {
@@ -152,8 +175,8 @@ const App: React.FC = () => {
                <Shirt size={48} strokeWidth={2.5} />
             </div>
             <div>
-              <h1 className="text-4xl font-black text-black tracking-tight">StyleMind</h1>
-              <p className="text-black font-black mt-3 text-lg leading-snug">Login to save your closet and build your style profile.</p>
+               <h1 className="text-4xl font-black text-black tracking-tight">StyleMind</h1>
+               <p className="text-black font-black mt-3 text-lg leading-snug">Login to save your closet and build your style profile.</p>
             </div>
             <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-[#CCFF00] text-black hover:bg-[#5A3EE0] font-black py-4 rounded-2xl transition-all text-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:translate-x-1 active:shadow-none">
               <LogIn size={24} strokeWidth={2.5} /> Login with Google
@@ -165,20 +188,20 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-[#F3EFFC] font-sans antialiased text-black overflow-hidden relative">
-      <header className="shrink-0 z-50 bg-white/100 border-b-[3px] border-black px-4 sm:px-8 py-3 sm:py-4 flex justify-between items-center relative">
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView(wardrobe.length > 0 ? 'wardrobe' : 'onboarding')}>
-          <div className="w-10 h-10 bg-[#CCFF00] rounded-xl flex items-center justify-center text-black shadow-[4px_4px_0_0_#000] group-hover:scale-105 transition-transform">
-            <Shirt size={22} strokeWidth={2.5}/>
+      <header className={`shrink-0 z-50 bg-white border-b-[3px] border-black transition-all duration-300 ${isKeyboardVisible || (view === 'recommend' && window.innerWidth < 640) ? 'h-0 overflow-hidden border-0' : 'px-4 sm:px-8 py-2 sm:py-3 flex justify-between items-center'}`}>
+        <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setView('wardrobe')}>
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#CCFF00] rounded-lg flex items-center justify-center text-black shadow-[2px_2px_0_0_#000] sm:shadow-[4px_4px_0_0_#000]">
+            <Shirt size={18} strokeWidth={2.5}/>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-black hidden sm:block">StyleMind</h1>
+          <h1 className="text-base sm:text-2xl font-black tracking-tight text-black">StyleMind</h1>
         </div>
         
         <div className="flex items-center gap-2 sm:gap-4">
-          <div className="flex items-center gap-1.5 bg-[#F4F1FD] px-3 py-1.5 rounded-xl text-black">
-            <Globe size={16} strokeWidth={2.5}/>
+          <div className="flex items-center gap-1 bg-[#F4F1FD] px-2 py-0.5 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-black">
+            <Globe size={12} className="sm:w-[14px]" strokeWidth={2.5}/>
             <select 
               value={language} onChange={(e) => setLanguage(e.target.value as Language)}
-              className="bg-transparent text-sm font-black focus:outline-none pr-1 cursor-pointer outline-none"
+              className="bg-transparent text-[10px] sm:text-sm font-black focus:outline-none pr-1 cursor-pointer outline-none"
             >
               <option value="en">EN</option>
               <option value="hi">HI</option>
@@ -217,7 +240,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className={`flex-1 max-w-7xl mx-auto w-full ${view === 'recommend' ? 'px-0 sm:px-8 pt-0 sm:pt-6' : 'px-4 sm:px-8 py-6 sm:py-10'} flex flex-col overflow-y-auto pb-[100px] sm:pb-10 relative`}>
+      <main className={`flex-1 max-w-7xl mx-auto w-full ${view === 'recommend' ? 'px-0 pt-0 sm:px-8 overflow-hidden bg-white sm:bg-transparent' : 'px-4 sm:px-8 py-6 sm:py-10 overflow-y-auto'} ${isKeyboardVisible ? 'pb-0' : 'pb-[100px] sm:pb-10'} flex flex-col relative`}>
         {view === 'onboarding' && <Onboarding onItemsAdded={handleAddItems} wardrobe={wardrobe} onComplete={() => setView('wardrobe')} />}
         {view === 'wardrobe' && <WardrobeGrid items={wardrobe} onDelete={handleDeleteItem} onUpdate={handleUpdateItem} onAddMore={() => setView('onboarding')} language={language} />}
         {view === 'recommend' && <OutfitRecommender wardrobe={wardrobe} language={language} onMarkAsWorn={markAsWorn} userMemory={memory} userUid={user?.uid} />}
@@ -226,7 +249,7 @@ const App: React.FC = () => {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 w-full bg-white flex justify-around items-end pb-8 pt-4 px-2 z-50 rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.06)] sm:hidden">
+      <nav className={`fixed bottom-0 left-0 w-full bg-white flex justify-around items-end pb-8 pt-4 px-2 z-50 rounded-t-[2.5rem] border-t-[3px] border-black shadow-[0_-10px_40px_rgba(0,0,0,0.06)] sm:hidden transition-transform duration-300 ${isKeyboardVisible ? 'translate-y-full' : 'translate-y-0'}`}>
         <button onClick={() => setView('wardrobe')} className={`flex flex-col items-center gap-1.5 w-16 ${view === 'wardrobe' ? 'text-black' : 'text-black'}`}>
           <div className={`${view === 'wardrobe' ? 'bg-[#F4F1FD] p-2 rounded-xl' : 'p-2'}`}>
              <LayoutGrid size={22} className={view === 'wardrobe' ? 'fill-current opacity-20' : ''} strokeWidth={2.5} />
