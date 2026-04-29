@@ -48,17 +48,30 @@
       },
       "required": ["image", "category", "silhouette", "name", "color", "hexColor", "material", "pattern", "style", "season", "wearCount", "createdAt", "updatedAt"]
     },
-    "ChatSession": {
-      "title": "ChatSession",
-      "description": "Saved chats.",
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A single message in a chat.",
       "type": "object",
       "properties": {
         "role": { "type": "string" },
         "text": { "type": "string" },
         "itemIds": { "type": "array", "items": { "type": "string" } },
+        "isLogged": { "type": "boolean" },
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["role", "text", "timestamp"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "A chat conversation metadata.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "lastMessage", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -70,9 +83,17 @@
       "schema": { "$ref": "#/entities/WardrobeItem" },
       "description": "User's wardrobe items."
     },
-    "/users/{userId}/chats/{messageId}": {
+    "/users/{userId}/sessions/{sessionId}": {
       "schema": { "$ref": "#/entities/ChatSession" },
-      "description": "User's chat history."
+      "description": "User's chat sessions."
+    },
+    "/users/{userId}/sessions/{sessionId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Messages within a chat session."
+    },
+    "/users/{userId}/chats/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Legacy chat history."
     }
   }
 }

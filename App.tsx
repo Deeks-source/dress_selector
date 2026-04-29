@@ -9,7 +9,7 @@ import Profile from './components/Profile';
 import { Shirt, LayoutGrid, Sparkles, ShoppingBag, Globe, LogIn, Plus } from 'lucide-react';
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, GoogleAuthProvider, User as AuthUser } from 'firebase/auth';
 import { auth } from './firebase';
-import { syncWardrobeItem, deleteWardrobeItemDB, syncChatMessage, getOrInitUser, subscribeToMemory, subscribeToWardrobe, subscribeToChats, appendMemoryFact } from './services/firebaseService';
+import { syncWardrobeItem, deleteWardrobeItemDB, syncChatMessage, getOrInitUser, subscribeToMemory, subscribeToWardrobe, subscribeToChats, appendMemoryFact, updateChatMessageLoggedStatus } from './services/firebaseService';
 
 const DESIGNER_KEY = 'stylemind_designer_cache';
 
@@ -24,7 +24,6 @@ const translations = {
 const App: React.FC = () => {
   const [view, setView] = useState<View>('onboarding');
   const [wardrobe, setWardrobe] = useState<ClothingItem[]>([]);
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [designerCache, setDesignerCache] = useState<DesignerState | null>(null);
   const [language, setLanguage] = useState<Language>('en');
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -41,7 +40,6 @@ const App: React.FC = () => {
         setIsInitializing(false);
       } else {
         setWardrobe([]);
-        setChatHistory([]);
         setMemory([]);
         setIsInitializing(false);
       }
@@ -57,14 +55,12 @@ const App: React.FC = () => {
     const unsubMem = subscribeToMemory(user.uid, setMemory);
     const unsubWardrobe = subscribeToWardrobe(user.uid, (items) => {
       setWardrobe(items);
-      if (items.length > 0) setView('wardrobe');
+      if (items.length > 0 && view === 'onboarding') setView('wardrobe');
     });
-    const unsubChats = subscribeToChats(user.uid, setChatHistory);
 
     return () => {
       unsubMem();
       unsubWardrobe();
-      unsubChats();
     };
   }, [user]);
 
@@ -116,12 +112,22 @@ const App: React.FC = () => {
     }
   };
 
-  const markAsWorn = async (itemIds: string[]) => {
+  const markAsWorn = async (itemIds: string[], messageId?: string) => {
     if (!user) return;
-    for (const item of wardrobe) {
-      if (itemIds.includes(item.id)) {
-        await syncWardrobeItem(user.uid, { ...item, wearCount: item.wearCount + 1 });
-      }
+    
+    // Optimistic update for wardrobe wear counts
+    setWardrobe(prev => prev.map(item => 
+      itemIds.includes(item.id) ? { ...item, wearCount: (item.wearCount || 0) + 1 } : item
+    ));
+
+    try {
+      await Promise.all(
+        wardrobe
+          .filter(item => itemIds.includes(item.id))
+          .map(item => syncWardrobeItem(user.uid, { ...item, wearCount: (item.wearCount || 0) + 1 }))
+      );
+    } catch (error) {
+      console.error("Failed to log wear:", error);
     }
   };
 
@@ -214,9 +220,9 @@ const App: React.FC = () => {
       <main className={`flex-1 max-w-7xl mx-auto w-full ${view === 'recommend' ? 'px-0 sm:px-8 pt-0 sm:pt-6' : 'px-4 sm:px-8 py-6 sm:py-10'} flex flex-col overflow-y-auto pb-[100px] sm:pb-10 relative`}>
         {view === 'onboarding' && <Onboarding onItemsAdded={handleAddItems} wardrobe={wardrobe} onComplete={() => setView('wardrobe')} />}
         {view === 'wardrobe' && <WardrobeGrid items={wardrobe} onDelete={handleDeleteItem} onUpdate={handleUpdateItem} onAddMore={() => setView('onboarding')} language={language} />}
-        {view === 'recommend' && <OutfitRecommender wardrobe={wardrobe} language={language} chatHistory={chatHistory} setChatHistory={syncChatState} onMarkAsWorn={markAsWorn} userMemory={memory} userUid={user?.uid} />}
+        {view === 'recommend' && <OutfitRecommender wardrobe={wardrobe} language={language} onMarkAsWorn={markAsWorn} userMemory={memory} userUid={user?.uid} />}
         {view === 'designer' && <CostumeDesigner wardrobe={wardrobe} language={language} cache={designerCache} setCache={setDesignerCache} />}
-        {view === 'profile' && user && <Profile user={user} onSignOut={() => auth.signOut()} />}
+        {view === 'profile' && user && <Profile user={user} onSignOut={() => auth.signOut()} wardrobe={wardrobe} />}
       </main>
 
       {/* Mobile Bottom Navigation */}

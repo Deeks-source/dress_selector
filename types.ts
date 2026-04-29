@@ -32,6 +32,14 @@ export interface ChatMessage {
   text: string;
   itemIds?: string[];
   timestamp: string;
+  isLogged?: boolean;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  lastMessage: string;
+  updatedAt: string;
 }
 
 export interface DesignerProduct {

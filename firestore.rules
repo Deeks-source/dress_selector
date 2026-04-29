@@ -70,31 +70,48 @@ service cloud.firestore {
       return hasRequired && countOk && typesOk;
     }
 
-    function isValidChatSession(data, isCreate) {
+    function isValidChatMessage(data, isCreate) {
       let hasRequired = isCreate ? data.keys().hasAll(['role', 'text', 'timestamp']) : true;
-      let countOk = !isCreate || (data.keys().size() == 3 || data.keys().size() == 4);
+      // Allow for optional itemIds and isLogged fields
+      let countOk = !isCreate || (data.keys().size() >= 3 && data.keys().size() <= 6);
       let typesOk = (
         (!('role' in data) || (data.role is string && data.role.size() <= 20)) &&
         (!('text' in data) || (data.text is string && data.text.size() <= 5000)) &&
         (!('itemIds' in data) || (data.itemIds is list && data.itemIds.size() <= 20)) &&
-        (!('timestamp' in data) || data.timestamp is timestamp)
+        (!('isLogged' in data) || data.isLogged is bool) &&
+        (!('timestamp' in data) || data.timestamp is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp)
+      );
+      return hasRequired && countOk && typesOk;
+    }
+
+    function isValidSessionMetadata(data, isCreate) {
+      let hasRequired = isCreate ? data.keys().hasAll(['title', 'lastMessage', 'createdAt', 'updatedAt']) : true;
+      let countOk = !isCreate || (data.keys().size() >= 4 && data.keys().size() <= 5);
+      let typesOk = (
+        (!('title' in data) || (data.title is string && data.title.size() <= 100)) &&
+        (!('lastMessage' in data) || (data.lastMessage is string && data.lastMessage.size() <= 5000)) &&
+        (!('createdAt' in data) || data.createdAt is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp)
       );
       return hasRequired && countOk && typesOk;
     }
 
     // Rules
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false; // Users shouldn't list all users
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false; 
       allow delete: if false; 
       allow create: if isOwner(userId)
                     && isValidId(userId)
+                    && isVerified()
                     && isValidUser(incoming(), true)
                     && incoming().createdAt == request.time
                     && incoming().updatedAt == request.time
                     && incoming().email == request.auth.token.email;
       allow update: if isOwner(userId)
                     && isValidId(userId)
+                    && isVerified()
                     && isValidUser(incoming(), false)
                     && incoming().updatedAt == request.time
                     && incoming().createdAt == existing().createdAt
@@ -102,16 +119,16 @@ service cloud.firestore {
                     && incoming().diff(existing()).affectedKeys().hasOnly(['memory', 'updatedAt']);
 
       match /wardrobe/{itemId} {
-        allow read: if isOwner(userId) && isValidId(userId);
-        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(itemId);
+        allow read: if isOwner(userId);
+        allow delete: if isOwner(userId) && isValidId(itemId);
         allow create: if isOwner(userId)
-                      && isValidId(userId)
+                      && isVerified()
                       && isValidId(itemId)
                       && isValidWardrobeItem(incoming(), true)
                       && incoming().createdAt == request.time
                       && incoming().updatedAt == request.time;
         allow update: if isOwner(userId)
-                      && isValidId(userId)
+                      && isVerified()
                       && isValidId(itemId)
                       && isValidWardrobeItem(incoming(), false)
                       && incoming().updatedAt == request.time
@@ -119,14 +136,50 @@ service cloud.firestore {
                       && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'color', 'hexColor', 'style', 'season', 'wearCount', 'description', 'updatedAt', 'image', 'silhouette', 'material', 'pattern']);
       }
 
+      match /sessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) 
+                      && isVerified()
+                      && isValidId(sessionId)
+                      && isValidSessionMetadata(incoming(), true)
+                      && incoming().createdAt == request.time
+                      && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId) 
+                      && isVerified()
+                      && isValidId(sessionId)
+                      && isValidSessionMetadata(incoming(), false)
+                      && incoming().updatedAt == request.time
+                      && incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'updatedAt', 'title']);
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+        
+        match /messages/{messageId} {
+          allow read: if isOwner(userId);
+          allow create: if isOwner(userId) 
+                        && isVerified()
+                        && isValidId(messageId)
+                        && isValidChatMessage(incoming(), true)
+                        && incoming().timestamp == request.time;
+          allow update: if isOwner(userId) 
+                        && isVerified()
+                        && isValidId(messageId)
+                        && isValidChatMessage(incoming(), false)
+                        && incoming().updatedAt == request.time
+                        && incoming().diff(existing()).affectedKeys().hasOnly(['isLogged', 'updatedAt']);
+        }
+      }
+
       match /chats/{messageId} {
-        allow read: if isOwner(userId) && isValidId(userId);
-        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(messageId);
+        allow read: if isOwner(userId);
+        allow delete: if isOwner(userId) && isValidId(messageId);
         allow create: if isOwner(userId)
-                      && isValidId(userId)
+                      && isVerified()
                       && isValidId(messageId)
-                      && isValidChatSession(incoming(), true);
-        allow update: if false; // Chats are immutable
+                      && isValidChatMessage(incoming(), true);
+        allow update: if isOwner(userId)
+                      && isVerified()
+                      && isValidId(messageId)
+                      && isValidChatMessage(incoming(), false)
+                      && incoming().diff(existing()).affectedKeys().hasOnly(['isLogged', 'updatedAt']);
       }
     }
   }

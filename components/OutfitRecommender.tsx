@@ -1,16 +1,13 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { ClothingItem, Language, ChatMessage } from '../types';
+import { ClothingItem, Language, ChatMessage, ChatSession } from '../types';
 import { getChatStylistResponse, extractStyleMemory } from '../services/geminiService';
-import { appendMemoryFact } from '../services/firebaseService';
-import { Sparkles, Loader2, Send, User, Bot, CheckCircle, Camera, Image as ImageIcon, MessageSquarePlus } from 'lucide-react';
+import { appendMemoryFact, createSession, subscribeToSessions, subscribeToSessionMessages, syncSessionMessage, updateSessionMessageLoggedStatus } from '../services/firebaseService';
+import { Sparkles, Loader2, Send, User, Bot, CheckCircle, Camera, Image as ImageIcon, MessageSquarePlus, Menu, X, Clock, Trash2 } from 'lucide-react';
 
 interface OutfitRecommenderProps {
   wardrobe: ClothingItem[];
   language: Language;
-  chatHistory: ChatMessage[];
-  setChatHistory: (history: ChatMessage[]) => void;
-  onMarkAsWorn: (itemIds: string[]) => void;
+  onMarkAsWorn: (itemIds: string[], messageId?: string) => void;
   userMemory?: string[];
   userUid?: string;
 }
@@ -71,33 +68,75 @@ const SilhouetteIcon = ({ silhouette, color, category }: { silhouette?: string, 
   return <rect {...common} x="4" y="4" width="16" height="16" rx="4" />;
 };
 
-const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, language, chatHistory, setChatHistory, onMarkAsWorn, userMemory = [], userUid }) => {
+const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, language, onMarkAsWorn, userMemory = [], userUid }) => {
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPhotos, setShowPhotos] = useState(true); // Default to photos as requested
+  const [showPhotos, setShowPhotos] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastMessageId = useRef<string | null>(null);
+
+  // Subscribe to all sessions
+  useEffect(() => {
+    if (!userUid) return;
+    const unsub = subscribeToSessions(userUid, setSessions);
+    return () => unsub();
+  }, [userUid]);
+
+  // Subscribe to messages in current session
+  useEffect(() => {
+    if (!userUid || !activeSessionId) {
+      setChatHistory([]);
+      return;
+    }
+    const unsub = subscribeToSessionMessages(userUid, activeSessionId, setChatHistory);
+    return () => unsub();
+  }, [userUid, activeSessionId]);
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const latest = chatHistory[chatHistory.length - 1];
+    if (latest && latest.id !== lastMessageId.current) {
+      scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+      lastMessageId.current = latest.id;
+    }
+    if (loading) {
+      scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [chatHistory, loading]);
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || !userUid) return;
 
     const currentInput = input;
+    const timestamp = new Date().toISOString();
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       text: currentInput,
-      timestamp: new Date().toISOString()
+      timestamp
     };
 
-    const newHistory = [...chatHistory, userMsg];
-    setChatHistory(newHistory);
+    let targetSessionId = activeSessionId;
+    
+    // Create new session if doesn't exist
+    if (!targetSessionId) {
+      const newId = await createSession(userUid, currentInput);
+      if (!newId) return;
+      targetSessionId = newId;
+      setActiveSessionId(newId);
+    }
+
     setInput('');
     setLoading(true);
+    
+    // Sync user message
+    await syncSessionMessage(userUid, targetSessionId, userMsg);
 
+    // Get AI Response
     const response = await getChatStylistResponse(wardrobe, chatHistory, currentInput, userMemory, language);
     if (response) {
       const modelMsg: ChatMessage = {
@@ -107,179 +146,271 @@ const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, languag
         itemIds: response.itemIds,
         timestamp: new Date().toISOString()
       };
-      setChatHistory([...newHistory, modelMsg]);
       
-      // Async extract facts without blocking
-      if (userUid) {
-        extractStyleMemory(newHistory, currentInput).then((facts) => {
-          if (facts.length > 0) {
-            appendMemoryFact(userUid, facts);
-          }
-        }).catch(err => console.error("Memory extraction failed", err));
-      }
+      await syncSessionMessage(userUid, targetSessionId, modelMsg);
+      
+      // Extract memory
+      extractStyleMemory([...chatHistory, userMsg], currentInput).then((facts) => {
+        if (facts.length > 0) {
+          appendMemoryFact(userUid, facts);
+        }
+      }).catch(err => console.error("Memory extraction failed", err));
     }
     setLoading(false);
   };
 
+  const startNewChat = () => {
+    setActiveSessionId(null);
+    setChatHistory([]);
+    setShowHistory(false);
+  };
 
-  const handleNewChat = () => {
-    if (confirm("Start a new chat and clear history?")) {
-      setChatHistory([]);
-      setInput('');
+  const handleLoggedItem = async (itemIds: string[], messageId: string) => {
+    onMarkAsWorn(itemIds);
+    if (userUid && activeSessionId) {
+      await updateSessionMessageLoggedStatus(userUid, activeSessionId, messageId, true);
     }
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto flex-1 flex flex-col bg-white sm:rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:shadow-[6px_6px_0_0_#000] overflow-hidden border-y-[3px] sm:border-[3px] border-black">
-      {/* Chat Header */}
-      <div className="bg-white border-b-[3px] border-black p-4 sm:p-5 flex justify-between items-center relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#A388EE] rounded-[1rem] flex items-center justify-center text-black">
-            <Bot size={20} className="sm:w-6 sm:h-6" strokeWidth={2.5}/>
-          </div>
-          <div>
-            <h3 className="font-black text-black text-base sm:text-lg">AI Stylist</h3>
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-2xl sm:rounded-[2rem] bg-[#06D6A0] animate-pulse" />
-              <p className="text-[10px] sm:text-xs font-black text-black">Always here to help</p>
-            </div>
-          </div>
+    <div className="w-full max-w-6xl mx-auto flex h-[calc(100dvh-120px)] sm:h-[600px] bg-white sm:rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:shadow-[6px_6px_0_0_#000] overflow-hidden border-y-[3px] sm:border-[3px] border-black relative">
+      
+      {/* Sidebar - Desktop */}
+      <div className={`hidden sm:flex flex-col w-64 border-r-[3px] border-black bg-[#F4F1FD] transition-all duration-300 ${!showHistory ? '-ml-64' : 'ml-0'}`}>
+        <div className="p-4 border-b-[3px] border-black flex justify-between items-center">
+          <h3 className="font-black text-xs uppercase tracking-widest text-black/50">Chat History</h3>
+          <button onClick={() => setShowHistory(false)} className="hover:bg-black/5 p-1 rounded-lg">
+            <X size={16} />
+          </button>
         </div>
-        
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button 
-            onClick={() => setShowPhotos(!showPhotos)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all ${
-              showPhotos ? 'bg-[#CCFF00] text-black shadow-[4px_4px_0_0_#000]' : 'bg-[#EAEAEA] text-black hover:bg-[#D0D0D0]'
-            }`}
-          >
-            {showPhotos ? <Camera size={14} strokeWidth={2.5}/> : <Sparkles size={14} strokeWidth={2.5}/>}
-            <span className="hidden sm:inline">{showPhotos ? 'Photo Mode' : 'Studio Mode'}</span>
-            <span className="sm:hidden">{showPhotos ? 'Photo' : 'Studio'}</span>
-          </button>
-          <button 
-            onClick={handleNewChat} 
-            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-[#EAEAEA] rounded-xl text-xs sm:text-sm font-black text-black hover:bg-[#D0D0D0] transition-colors"
-            title="Start new chat"
-          >
-            <MessageSquarePlus size={14} strokeWidth={2.5} />
-            <span className="hidden sm:inline">New Chat</span>
-          </button>
+        <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-2">
+          {sessions.map(s => (
+            <button 
+              key={s.id} 
+              onClick={() => setActiveSessionId(s.id)}
+              className={`w-full text-left p-3 rounded-2xl border-2 transition-all flex items-center gap-3 group ${activeSessionId === s.id ? 'bg-[#CCFF00] border-black shadow-[2px_2px_0_0_#000]' : 'bg-white border-black/10 hover:border-black'}`}
+            >
+              <Clock size={14} className="shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black truncate">{s.title}</p>
+                <p className="text-[10px] font-bold text-black/60 truncate">{new Date(s.updatedAt).toLocaleDateString()}</p>
+              </div>
+            </button>
+          ))}
+          {sessions.length === 0 && (
+            <div className="p-4 text-center">
+              <p className="text-[10px] font-black text-black/40">No conversations yet</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 no-scrollbar bg-white">
-        {chatHistory.length === 0 && !loading && (
-           <div className="h-full flex flex-col items-center justify-center text-center space-y-5">
-            <div className="w-24 h-24 bg-[#A388EE] rounded-2xl sm:rounded-[2rem] flex items-center justify-center text-black">
-              <Sparkles size={40} strokeWidth={2.5}/>
+      {/* Sidebar - Mobile Drawer */}
+      {showHistory && (
+        <div className="sm:hidden absolute inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity" onClick={() => setShowHistory(false)}>
+          <div className="absolute top-0 left-0 bottom-0 w-4/5 bg-[#F4F1FD] border-r-[3px] border-black animate-in slide-in-from-left duration-300" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b-[3px] border-black flex justify-between items-center">
+              <h3 className="font-black text-sm uppercase tracking-widest text-black">Wardrobe AI History</h3>
+              <button onClick={() => setShowHistory(false)} className="bg-white border-2 border-black p-2 rounded-xl">
+                <X size={20} />
+              </button>
             </div>
-            <p className="text-lg font-black text-black max-w-sm">
-              I know your closet inside out. Try: <br/>
-              <span className="text-black font-black mt-2 inline-block">"Build a casual weekend look"</span> or <br/>
-              <span className="text-black font-black">"What goes with my blue jeans?"</span>
-            </p>
-          </div>
-        )}
-
-        {chatHistory.map((msg) => (
-          <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-500`}>
-            <div className={`max-w-[90%] sm:max-w-[75%] flex gap-2 sm:gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} min-w-0`}>
-              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-2xl sm:rounded-[2rem] flex-shrink-0 flex items-center justify-center ${msg.role === 'user' ? 'bg-[#06D6A0] text-black' : 'bg-[#A388EE] text-black'}`}>
-                {msg.role === 'user' ? <User size={16} strokeWidth={2.5}/> : <Bot size={18} strokeWidth={2.5}/>}
-              </div>
-              <div className="space-y-3 sm:space-y-4 flex-1 min-w-0">
-                <div className={`p-4 sm:p-5 rounded-2xl text-sm sm:text-base font-black leading-relaxed break-words whitespace-pre-wrap  border-[3px] border-black ${msg.role === 'user' ? 'bg-[#E3FBCC] text-black rounded-tr-md' : 'bg-[#FFF4E0] text-black rounded-tl-md'}`}>
-                  {msg.text}
-                </div>
-                
-                {/* Embedded Outfit Suggestions */}
-                {msg.itemIds && msg.itemIds.length > 0 && (
-                  <div className="bg-white p-4 sm:p-6 rounded-[2rem] border-[3px] border-black shadow-[0_8px_30px_rgb(0,0,0,0.06)] space-y-4 sm:space-y-6 animate-in zoom-in-95 duration-700 w-full overflow-hidden mt-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-[3px] border-black pb-3 sm:pb-4 gap-3 sm:gap-0">
-                       <div className="flex flex-col">
-                         <span className="text-[10px] sm:text-xs font-black text-black uppercase tracking-wider bg-[#A388EE] px-3 py-1 rounded-2xl sm:rounded-[2rem] w-max">Curated Outfit</span>
-                         <span className="text-[10px] sm:text-xs text-black font-black mt-1.5">{msg.itemIds.length} pieces selected</span>
-                       </div>
-                       <button 
-                         onClick={() => onMarkAsWorn(msg.itemIds!)}
-                         className="flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-[#CCFF00] text-black hover:bg-[#5A3EE0] text-xs font-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:translate-x-1 active:shadow-none transition-all"
-                       >
-                         <CheckCircle size={16} strokeWidth={2.5}/> Log Wear
-                       </button>
-                    </div>
-                    <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-2 sm:pb-4 no-scrollbar">
-                      {msg.itemIds.map(id => {
-                        const item = wardrobe.find(i => i.id === id);
-                        if (!item) return null;
-                        return (
-                          <div key={id} className="flex-shrink-0 w-28 sm:w-32 space-y-3 group">
-                            <div className="aspect-[4/5] bg-[#FFF4E0] rounded-2xl relative flex items-center justify-center overflow-hidden border-[3px] border-black  p-4 transition-all">
-                              {/* Toggle Logic based on showPhotos state */}
-                              {showPhotos ? (
-                                <img 
-                                  src={item.image} 
-                                  alt={item.name} 
-                                  className="w-full h-full object-cover animate-in fade-in duration-500 rounded-lg"
-                                />
-                              ) : (
-                                <div className="w-full h-full animate-in fade-in duration-500 flex items-center justify-center">
-                                   <div className="absolute inset-0 opacity-10 blur-xl" style={{ backgroundColor: item.hexColor }} />
-                                   <svg viewBox="0 0 24 24" className="w-full h-full drop-shadow-[2px_2px_0_rgba(0,0,0,1)] relative z-10 p-2">
-                                     <SilhouetteIcon silhouette={item.silhouette} color={item.hexColor} category={item.category} />
-                                   </svg>
-                                </div>
-                              )}
-                              
-                              <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-white/90 backdrop-blur text-[9px] font-black uppercase tracking-wider rounded-md text-black  border-[3px] border-black">
-                                {item.category}
-                              </div>
-                            </div>
-                            <p className="text-xs font-black text-center text-black truncate px-1">{item.name}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
+            <div className="p-4 space-y-3 overflow-y-auto h-full pb-20 no-scrollbar">
+              {sessions.map(s => (
+                <button 
+                  key={s.id} 
+                  onClick={() => { setActiveSessionId(s.id); setShowHistory(false); }}
+                  className={`w-full text-left p-4 rounded-2xl border-[3px] transition-all flex items-center gap-4 ${activeSessionId === s.id ? 'bg-[#CCFF00] border-black shadow-[4px_4px_0_0_#000]' : 'bg-white border-black shadow-[2px_2px_0_0_#000]'}`}
+                >
+                  <Clock size={18} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-black truncate">{s.title}</p>
+                    <p className="text-[11px] font-bold text-black/60 uppercase">{new Date(s.updatedAt).toLocaleDateString()}</p>
                   </div>
-                )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        {/* Chat Header */}
+        <div className="bg-white border-b-[3px] border-black p-4 sm:p-5 flex justify-between items-center relative z-10">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button onClick={() => setShowHistory(!showHistory)} className="p-2 sm:p-2.5 rounded-xl border-[3px] border-black bg-white hover:bg-[#F4F1FD] shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:translate-x-0.5 active:shadow-none transition-all" title="Chat History">
+              <Clock size={18} strokeWidth={2.5} />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex w-10 h-10 sm:w-11 sm:h-11 bg-[#A388EE] border-2 border-black rounded-[0.8rem] items-center justify-center text-black">
+                <Bot size={20} className="" strokeWidth={2.5}/>
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-black text-black text-sm sm:text-base truncate max-w-[120px] sm:max-w-none">
+                  {activeSessionId ? sessions.find(s => s.id === activeSessionId)?.title : 'New AI Stylist'}
+                </h3>
+                <div className="flex items-center gap-1.5 leading-none">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#06D6A0] animate-pulse" />
+                  <p className="text-[10px] sm:text-xs font-black text-black/60">Ready to style</p>
+                </div>
               </div>
             </div>
           </div>
-        ))}
-
-        {loading && (
-          <div className="flex justify-start animate-pulse">
-            <div className="flex gap-2 sm:gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-2xl sm:rounded-[2rem] bg-[#A388EE] text-black flex items-center justify-center">
-                <Loader2 size={20} className="animate-spin" strokeWidth={2.5}/>
-              </div>
-              <div className="p-4 sm:p-5 bg-[#FFF4E0] rounded-2xl rounded-tl-md text-sm sm:text-base text-black font-black tracking-tight">Designing your perfect look...</div>
-            </div>
+          
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button 
+              onClick={() => setShowPhotos(!showPhotos)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 border-2 border-black rounded-xl text-[10px] sm:text-xs font-black transition-all ${
+                showPhotos ? 'bg-[#CCFF00] text-black shadow-[3px_3px_0_0_#000]' : 'bg-white text-black'
+              }`}
+            >
+              {showPhotos ? <Camera size={12} strokeWidth={2.5}/> : <ImageIcon size={12} strokeWidth={2.5}/>}
+              <span className="hidden sm:inline">{showPhotos ? 'Visual' : 'Draft'} Mode</span>
+              <span className="sm:hidden">{showPhotos ? 'PH' : 'DR'}</span>
+            </button>
+            <button 
+              onClick={startNewChat} 
+              className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-black text-white border-2 border-black rounded-xl text-[10px] sm:text-xs font-black hover:bg-black/90 shadow-[3px_3px_0_0_#9F8FEF] active:translate-y-0.5 active:translate-x-0.5 active:shadow-none transition-all"
+            >
+              <MessageSquarePlus size={12} strokeWidth={2.5} />
+              <span className="hidden sm:inline">New Chat</span>
+              <span className="sm:hidden">New</span>
+            </button>
           </div>
-        )}
-        <div ref={scrollRef} />
-      </div>
+        </div>
 
-      {/* Input Area */}
-      <div className="p-4 sm:p-6 bg-white border-t-[3px] border-black">
-        <form onSubmit={handleSend} className="flex-1 flex gap-2 sm:gap-3 items-center bg-[#FFF4E0] p-1.5 rounded-[2rem] border-[3px] border-black focus-within:border-black focus-within:bg-white focus-within: transition-all">
-          <input 
-            type="text" 
-            value={input} 
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask me anything..." 
-            className="flex-1 min-w-0 bg-transparent px-4 sm:px-6 py-3 sm:py-3.5 text-sm sm:text-base font-black outline-none text-black placeholder:text-black"
-            disabled={loading}
-          />
-          <button 
-            type="submit" 
-            disabled={!input.trim() || loading}
-            className={`shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-2xl sm:rounded-[2rem] flex items-center justify-center transition-all ${input.trim() && !loading ? 'bg-[#CCFF00] text-black shadow-[2px_2px_0_0_#000] shadow-[#6B4EFF]/30 hover:scale-105 active:translate-y-1 active:translate-x-1 active:shadow-none' : 'bg-[#D0D0D0] text-black'}`}
-          >
-            <Send size={18} className="" strokeWidth={2.5}/>
-          </button>
-        </form>
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 no-scrollbar bg-[#FAF9FF]">
+          {chatHistory.length === 0 && !loading && (
+             <div className="h-full flex flex-col items-center justify-center text-center space-y-6 p-4">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#A388EE] border-[3px] border-black rounded-[2rem] flex items-center justify-center text-black shadow-[6px_6px_0_0_#000]">
+                <Sparkles size={40} strokeWidth={2.5}/>
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-xl sm:text-2xl font-black text-black">Style Intelligence Ready</h4>
+                <p className="text-sm sm:text-base font-black text-black/60 max-w-sm">
+                  Switch to <span className="text-[#A388EE]">Visual Mode</span> to see photos of your recommendations.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-md">
+                {["Casual weekend look", "Outfit for date night", "Style my blue jeans", "Wedding guest ideas"].map(q => (
+                  <button 
+                    key={q} 
+                    onClick={() => { setInput(q); handleSend(); }}
+                    className="p-3 bg-white border-[3px] border-black rounded-2xl text-xs font-black text-black hover:bg-[#CCFF00] transition-all text-left shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:translate-x-0.5 active:shadow-none"
+                  >
+                    "{q}"
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {chatHistory.map((msg) => (
+            <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
+              <div className={`max-w-[90%] sm:max-w-[80%] flex gap-2 sm:gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} min-w-0`}>
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 border-2 border-black rounded-xl sm:rounded-2xl flex-shrink-0 flex items-center justify-center ${msg.role === 'user' ? 'bg-[#06D6A0] text-black' : 'bg-[#A388EE] text-black shadow-[2px_2px_0_0_#000]'}`}>
+                  {msg.role === 'user' ? <User size={16} strokeWidth={2.5}/> : <Bot size={18} strokeWidth={2.5}/>}
+                </div>
+                <div className="space-y-3 sm:space-y-4 flex-1 min-w-0">
+                  <div className={`p-4 sm:p-5 rounded-2xl text-sm sm:text-[15px] font-black leading-relaxed break-words whitespace-pre-wrap border-[3px] border-black shadow-[4px_4px_0_0_#000] ${msg.role === 'user' ? 'bg-[#E3FBCC] text-black' : 'bg-white text-black'}`}>
+                    {msg.text}
+                  </div>
+                  
+                  {msg.itemIds && msg.itemIds.length > 0 && (
+                    <div className="bg-white p-4 sm:p-6 rounded-[2rem] border-[3px] border-black shadow-[0_8px_30px_rgb(0,0,0,0.06)] space-y-4 sm:space-y-6 animate-in zoom-in-95 duration-700 w-full overflow-hidden mt-4">
+                      <div className="flex items-center justify-between border-b-[3px] border-black pb-4">
+                         <div className="flex flex-col">
+                           <span className="text-[10px] sm:text-xs font-black text-black uppercase tracking-widest bg-[#CCFF00] px-3 py-1 rounded-full border-2 border-black shadow-[2px_2px_0_0_#000] w-max">Outfit Bundle</span>
+                           <span className="text-[10px] sm:text-xs text-black/60 font-black mt-2">{msg.itemIds.length} pieces synchronized</span>
+                         </div>
+                          <button 
+                            onClick={() => handleLoggedItem(msg.itemIds!, msg.id)}
+                            disabled={msg.isLogged}
+                            className={`flex items-center justify-center gap-2 px-4 py-2 text-xs font-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:translate-x-0.5 active:shadow-none transition-all ${
+                              msg.isLogged 
+                              ? 'bg-[#EAEAEA] text-black/40 border-2 border-black/10 shadow-none cursor-not-allowed' 
+                              : 'bg-[#A388EE] text-black border-[3px] border-black hover:bg-[#CCFF00]'
+                            }`}
+                          >
+                            {msg.isLogged ? <CheckCircle size={16} /> : <CheckCircle size={16} />} 
+                            {msg.isLogged ? 'Wear Logged' : 'Log Wear'}
+                          </button>
+                      </div>
+                      <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 no-scrollbar">
+                        {msg.itemIds.map(id => {
+                          const item = wardrobe.find(i => i.id === id);
+                          if (!item) return null;
+                          return (
+                            <div key={id} className="flex-shrink-0 w-28 sm:w-36 space-y-3">
+                              <div className="aspect-[3/4] bg-[#F4F1FD] rounded-2xl relative flex items-center justify-center overflow-hidden border-[3px] border-black p-2 transition-all shadow-[4px_4px_0_0_#EAEAEA]">
+                                {showPhotos ? (
+                                  <img src={item.image} alt={item.name} className="w-full h-full object-cover animate-in fade-in duration-500 rounded-lg" />
+                                ) : (
+                                  <div className="w-full h-full animate-in fade-in duration-500 flex items-center justify-center">
+                                     <div className="absolute inset-0 opacity-10 blur-xl" style={{ backgroundColor: item.hexColor }} />
+                                     <svg viewBox="0 0 24 24" className="w-full h-full p-2 relative z-10 drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)]">
+                                       <SilhouetteIcon silhouette={item.silhouette} color={item.hexColor} category={item.category} />
+                                     </svg>
+                                  </div>
+                                )}
+                                <div className="absolute top-2 left-2 px-2 py-0.5 bg-black text-white text-[8px] font-black uppercase tracking-tighter rounded-md border border-white/50">
+                                  {item.category}
+                                </div>
+                              </div>
+                              <p className="text-[11px] font-black text-center text-black leading-tight uppercase truncate">{item.name}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {loading && (
+            <div className="flex justify-start">
+              <div className="flex gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 border-2 border-black rounded-xl sm:rounded-2xl bg-[#A388EE] text-black flex items-center justify-center shadow-[2px_2px_0_0_#000]">
+                  <Loader2 size={18} className="animate-spin" strokeWidth={2.5}/>
+                </div>
+                <div className="p-4 sm:p-5 bg-white border-[3px] border-black shadow-[4px_4px_0_0_#000] rounded-2xl text-sm sm:text-[15px] text-black font-black flex items-center gap-2">
+                  <span className="flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-black rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-1.5 h-1.5 bg-black rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-1.5 h-1.5 bg-black rounded-full animate-bounce" />
+                  </span>
+                  Stylist is thinking...
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={scrollRef} />
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 sm:p-6 bg-white border-t-[3px] border-black">
+          <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-2 sm:gap-3 items-center bg-[#F4F1FD] p-1.5 rounded-[2rem] border-[3px] border-black focus-within:bg-white focus-within:shadow-[6px_6px_0_0_#000] transition-all">
+            <input 
+              type="text" 
+              value={input} 
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="What should I wear today?" 
+              className="flex-1 min-w-0 bg-transparent px-4 sm:px-6 py-3 sm:py-3.5 text-sm sm:text-base font-black outline-none text-black placeholder:text-black/30"
+              disabled={loading}
+            />
+            <button 
+              type="submit" 
+              disabled={!input.trim() || loading}
+              className={`shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl sm:rounded-[2rem] flex items-center justify-center transition-all border-[3px] border-black shadow-[2px_2px_0_0_#000] ${input.trim() && !loading ? 'bg-[#CCFF00] hover:scale-105 active:translate-y-1 active:translate-x-1 active:shadow-none' : 'bg-white text-black opacity-30 cursor-not-allowed'}`}
+            >
+              <Send size={20} strokeWidth={2.5}/>
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

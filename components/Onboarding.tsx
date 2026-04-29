@@ -1,8 +1,8 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ClothingItem, ClothingCategory } from '../types';
 import { analyzeClothingImage } from '../services/geminiService';
-import { Loader2, CheckCircle2, AlertCircle, X, ImageIcon, Plus, Scissors, ArrowRight, Wand2 } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, X, ImageIcon, Plus, Scissors, ArrowRight, Wand2, ClipboardPaste } from 'lucide-react';
 
 interface OnboardingProps {
   onItemsAdded: (items: ClothingItem[]) => void;
@@ -21,6 +21,36 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
   const [processingIndex, setProcessingIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const newPending: PendingUpload[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            try {
+              const compressedBase64 = await compressImage(file);
+              newPending.push({ id: Math.random().toString(36).substr(2, 9), base64: compressedBase64 });
+            } catch (err) {
+              setError("An image from clipboard could not be loaded.");
+            }
+          }
+        }
+      }
+
+      if (newPending.length > 0) {
+        setPendingQueue(prev => [...prev, ...newPending]);
+        setError(null);
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
 
   const hasShirt = wardrobe.some(i => i.category === ClothingCategory.SHIRT);
   const hasPants = wardrobe.some(i => i.category === ClothingCategory.PANTS);
@@ -149,6 +179,33 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
     setProcessingIndex(null);
   };
 
+  const handlePasteClick = async () => {
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      const newPending: PendingUpload[] = [];
+      
+      for (const item of clipboardItems) {
+        for (const type of item.types) {
+          if (type.startsWith('image/')) {
+            const blob = await item.getType(type);
+            const file = new File([blob], "pasted-image.png", { type });
+            const compressedBase64 = await compressImage(file);
+            newPending.push({ id: Math.random().toString(36).substr(2, 9), base64: compressedBase64 });
+          }
+        }
+      }
+
+      if (newPending.length > 0) {
+        setPendingQueue(prev => [...prev, ...newPending]);
+        setError(null);
+      } else {
+        setError("No image found in clipboard. Try copying an image first.");
+      }
+    } catch (err) {
+      setError("Unable to access clipboard. Please use Ctrl+V or upload manually.");
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-[800ms] pb-32 px-4">
       <div className="text-center space-y-3 sm:space-y-4">
@@ -179,14 +236,26 @@ const Onboarding: React.FC<OnboardingProps> = ({ onItemsAdded, wardrobe, onCompl
       </div>
 
       {!analyzing && (
-        <div className="relative group">
-          <input type="file" multiple ref={fileInputRef} accept="image/*" onChange={handleFileSelection} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-          <div className="border border-dashed border-black rounded-[2rem] sm:rounded-[2.5rem] p-10 sm:p-16 text-center transition-all group-hover:bg-white group-hover:border-black bg-white ">
-            <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-[#A388EE] border border-white rounded-[1.5rem] flex items-center justify-center text-black mb-4 sm:mb-6  group-hover:scale-105 group-hover:rotate-3 transition-transform">
-              <Plus size={32} strokeWidth={2.5} className="sm:w-10 sm:h-10" />
+        <div className="space-y-4">
+          <div className="relative group">
+            <input type="file" multiple ref={fileInputRef} accept="image/*" onChange={handleFileSelection} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+            <div className="border border-dashed border-black rounded-[2rem] sm:rounded-[2.5rem] p-10 sm:p-16 text-center transition-all group-hover:bg-white group-hover:border-black bg-white group-hover:scale-[1.01]">
+              <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-[#A388EE] border border-white rounded-[1.5rem] flex items-center justify-center text-black mb-4 sm:mb-6  group-hover:scale-105 group-hover:rotate-3 transition-transform">
+                <Plus size={32} strokeWidth={2.5} className="sm:w-10 sm:h-10" />
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-black tracking-tight">Select Photos</h3>
+              <p className="text-black mt-2 sm:mt-3 text-sm font-black">Clear photos of individual items work best.</p>
             </div>
-            <h3 className="text-xl sm:text-2xl font-black text-black tracking-tight">Select Photos</h3>
-            <p className="text-black mt-2 sm:mt-3 text-sm font-black">Clear photos of individual items work best.</p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button 
+              onClick={handlePasteClick}
+              className="flex-1 bg-white border-[3px] border-black p-4 rounded-2xl font-black text-black flex items-center justify-center gap-3 hover:bg-[#F4F1FD] transition-all shadow-[4px_4px_0_0_#000] active:translate-y-1 active:translate-x-1 active:shadow-none"
+            >
+              <ClipboardPaste size={20} className="text-[#A388EE]" strokeWidth={2.5} />
+              <span>Paste from Clipboard (Ctrl+V)</span>
+            </button>
           </div>
         </div>
       )}

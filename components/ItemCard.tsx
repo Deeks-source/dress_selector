@@ -91,9 +91,14 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
             />
             {/* Overlay buttons to remain accessible */}
             <div className="absolute top-4 left-4 sm:top-6 sm:left-6 right-4 sm:right-6 flex justify-between items-start z-20">
-              <span className="px-2 py-1.5 sm:px-4 sm:py-2 bg-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider rounded-2xl text-black border-[3px] border-black shadow-[4px_4px_0_0_#000]">
-                {item.category}
-              </span>
+              <div className="flex flex-col gap-2">
+                <span className="px-2 py-1.5 sm:px-4 sm:py-2 bg-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider rounded-2xl text-black border-[3px] border-black shadow-[4px_4px_0_0_#000]">
+                  {item.category}
+                </span>
+                <span className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-[#CCFF00] text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-xl text-black border-[3px] border-black shadow-[2px_2px_0_0_#000] w-fit">
+                  Worn {item.wearCount || 0}x
+                </span>
+              </div>
               <button 
                 onClick={() => setShowPhoto(false)}
                 className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border-[3px] border-black active:translate-y-1 active:translate-x-1 active:shadow-none transition-all outline-none bg-white text-black shadow-[4px_4px_0_0_#000] hover:bg-gray-50`}
@@ -110,9 +115,14 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
           /* Digital Twin (Studio Mode) */
           <div className="w-full h-full flex flex-col justify-between animate-in fade-in zoom-in-95 duration-300 relative z-10">
             <div className="flex justify-between items-start">
-              <span className="px-2 py-1.5 sm:px-4 sm:py-2 bg-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider rounded-2xl text-black border-[3px] border-black shadow-[4px_4px_0_0_#000]">
-                {item.category}
-              </span>
+              <div className="flex flex-col gap-2">
+                <span className="px-2 py-1.5 sm:px-4 sm:py-2 bg-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider rounded-2xl text-black border-[3px] border-black shadow-[4px_4px_0_0_#000]">
+                  {item.category}
+                </span>
+                <span className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-[#CCFF00] text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-xl text-black border-[3px] border-black shadow-[2px_2px_0_0_#000] w-fit">
+                  Worn {item.wearCount || 0}x
+                </span>
+              </div>
               <button 
                 onClick={() => setShowPhoto(true)}
                 className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border-[3px] border-black active:translate-y-1 active:translate-x-1 active:shadow-none transition-all outline-none bg-white text-black shadow-[4px_4px_0_0_#000] hover:bg-gray-50`}
@@ -180,6 +190,10 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
               <div className="flex items-center gap-2 sm:gap-3">
                 <Box size={20} className="text-black shrink-0" strokeWidth={2.5}/>
                 <span className="text-xs sm:text-[14px] font-black leading-none text-black truncate">{item.material}</span>
+              </div>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Tag size={18} className="text-black shrink-0" strokeWidth={2.5}/>
+                <span className="text-xs sm:text-[14px] font-black leading-none text-black truncate">Worn {item.wearCount || 0} times</span>
               </div>
             </div>
           </>

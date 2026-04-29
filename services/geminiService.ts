@@ -2,16 +2,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ClothingItem, ClothingCategory, ChatMessage, DesignerProduct, PriceTier } from "../types";
 
+// Official Gemma 4 31B Instruction model for high-quality reasoning and style analysis
+const GEMMA_MODEL = 'gemma-4-31b-it';
+
 export const analyzeClothingImage = async (base64Image: string): Promise<any[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = 'gemini-3-flash-preview';
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   
   const prompt = `Analyze this image and identify all distinct clothing items.
   Format as JSON array with: name, category, silhouette, color, hexColor, material, pattern, style, season, description, box_2d (array of 4 numbers [ymin, xmin, ymax, xmax] scaled 0-1000, if uncertain return null).`;
 
   try {
     const response = await ai.models.generateContent({
-      model,
+      model: GEMMA_MODEL,
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Image.split(',')[1] || base64Image } },
@@ -22,9 +24,11 @@ export const analyzeClothingImage = async (base64Image: string): Promise<any[]> 
         responseMimeType: "application/json",
       }
     });
-    const text = response.text;
+    // Accessing .text property directly as per @google/genai documentation
+    const text = response.text; 
     return text ? JSON.parse(text) : [];
   } catch (e) {
+    console.error("Gemma Image Analysis Error:", e);
     return [];
   }
 };
@@ -36,13 +40,15 @@ export const getChatStylistResponse = async (
   userMemory: string[] = [],
   language: string = 'en'
 ): Promise<{ text: string; itemIds?: string[] } | null> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = 'gemini-3-flash-preview';
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-  const contextPrompt = `You are a stylish best friend. 
+  const contextPrompt = `You are a stylish best friend and fashion expert powered by Gemma 2. 
   USER PREFERENCES/PROFILE FACTS: ${JSON.stringify(userMemory)}
   WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color })))}.
-  Format JSON: {"text": "message", "itemIds": ["id1"]}`;
+  
+  Your goal is to provide personalized, high-fashion styling advice. 
+  
+  Format strictly as JSON: {"text": "Your message here", "itemIds": ["id1", "id2"]}`;
 
   const contents = [
     { role: 'user', parts: [{ text: contextPrompt }] },
@@ -52,12 +58,17 @@ export const getChatStylistResponse = async (
 
   try {
     const response = await ai.models.generateContent({
-      model,
+      model: GEMMA_MODEL,
       contents: contents as any,
-      config: { responseMimeType: "application/json" }
+      config: { 
+        responseMimeType: "application/json",
+        temperature: 0.7 
+      }
     });
-    return response.text ? JSON.parse(response.text) : null;
+    const text = response.text;
+    return text ? JSON.parse(text) : null;
   } catch (e) {
+    console.error("Gemma Stylist Error:", e);
     return null;
   }
 };
@@ -66,10 +77,10 @@ export const extractStyleMemory = async (
   history: ChatMessage[],
   userMessage: string
 ): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const prompt = `Analyze this user chat sequence and extract any new, permanent facts about their style preferences, physical traits, lifestyle, sizing, or dislikes.
-  If they mention they "hate the color yellow" or "work in a corporate office", that's a key fact!
-  Return a JSON array of strings containing the facts. If no clear facts exist, return an empty array [].
+  Focus on high-fidelity extraction of style identity.
+  Return a JSON array of strings. Empty array [] if no new facts.
   
   Chat History:
   ${history.slice(-4).map(h => `${h.role}: ${h.text}`).join('\n')}
@@ -78,12 +89,14 @@ export const extractStyleMemory = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: GEMMA_MODEL,
       contents: prompt,
       config: { responseMimeType: "application/json" }
     });
-    return response.text ? JSON.parse(response.text) : [];
+    const text = response.text;
+    return text ? JSON.parse(text) : [];
   } catch (e) {
+    console.error("Gemma Memory Extraction Error:", e);
     return [];
   }
 };
@@ -95,50 +108,46 @@ export const getShoppingSuggestions = async (
   priceTier: PriceTier,
   language: string = 'en'
 ) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = 'gemini-3-pro-preview'; 
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
   const styleSummary = wardrobe.map(i => `${i.color} ${i.style} ${i.category}`).join(', ');
 
-  const prompt = `Act as a Professional Fashion Procurement Agent. Find 10 products that complement this wardrobe: ${styleSummary}.
+  const prompt = `Act as an Elite Fashion Consultant. Based on this wardrobe: ${styleSummary}, suggest 5 items that would elevate the user's style.
   
-  CRITICAL ACCURACY CONSTRAINTS:
-  1. ATOMIC PAIRING: The 'imageUrl' and 'url' MUST be a verified pair. The image MUST be the main product image from the EXACT 'url' provided. 
-  2. NO MISMATCHES: Do not use a generic category image with a specific product link. If you cannot find the direct image for the specific link, skip that item.
-  3. PRICE RANGE: Strictly follow "${priceTier}" pricing for ${location || 'Global'}.
-  4. LINK VALIDITY: Return ONLY direct Product Detail Pages (PDP). NO search results, NO homepages, NO blogs.
+  Strictly follow "${priceTier}" pricing for ${location || 'Global'}.
   
   JSON STRUCTURE:
   {
-    "advice": "Trend advice based on current fashion week trends.",
+    "advice": "Trend advice based on current high-fashion industry insights.",
     "products": [
       {
         "id": "unique_string",
-        "name": "Exact Product Name as it appears on the store",
+        "name": "Product Name",
         "price": "Price with Currency",
         "store": "Brand/Retailer Name",
-        "url": "DIRECT_PRODUCT_URL",
-        "imageUrl": "DIRECT_IMAGE_OF_THIS_EXACT_PRODUCT",
-        "reason": "Why this specific item is the perfect missing piece for their closet.",
+        "url": "https://example.com/product",
+        "imageUrl": "https://images.unsplash.com/photo-1543087332-61d0630b9ecc?q=80&w=800",
+        "reason": "Expert reasoning for this recommendation.",
         "silhouette": "tee/jeans/hoodie/sneakers/boots/jacket",
-        "hexColor": "Dominant product color hex"
+        "hexColor": "Hex color"
       }
     ]
   }`;
 
   try {
     const response = await ai.models.generateContent({
-      model,
+      model: GEMMA_MODEL,
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
+        temperature: 0.8
       }
     });
 
-    return response.text ? JSON.parse(response.text) : null;
+    const text = response.text;
+    return text ? JSON.parse(text) : null;
   } catch (e) {
-    console.error("Designer Pro Error:", e);
+    console.error("Gemma Designer Error:", e);
     return null;
   }
 };

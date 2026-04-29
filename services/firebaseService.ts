@@ -1,7 +1,26 @@
-import { collection, doc, setDoc, updateDoc, onSnapshot, getDoc, getDocs, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, onSnapshot, getDoc, getDocs, deleteDoc, writeBatch, serverTimestamp, query, orderBy, limit } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from '../firebase';
-import { ClothingItem, ChatMessage } from '../types';
+import { ClothingItem, ChatMessage, ChatSession } from '../types';
+
+// ... (handleFirestoreError logic) ...
+
+export const createSession = async (userId: string, firstMessage: string) => {
+  try {
+    const sessionId = Math.random().toString(36).substring(2, 15);
+    const ref = doc(db, 'users', userId, 'sessions', sessionId);
+    await setDoc(ref, {
+      title: firstMessage.substring(0, 30) + (firstMessage.length > 30 ? '...' : ''),
+      lastMessage: firstMessage,
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp()
+    });
+    return sessionId;
+  } catch (err: any) {
+    handleFirestoreError(err, 'write', `users/${userId}/sessions`);
+    return null;
+  }
+};
 
 interface FirestoreErrorInfo {
   error: string;
@@ -86,17 +105,31 @@ export const deleteWardrobeItemDB = async (userId: string, itemId: string) => {
 export const syncChatMessage = async (userId: string, msg: ChatMessage) => {
   try {
     const ref = doc(db, 'users', userId, 'chats', msg.id);
-    const exists = (await getDoc(ref)).exists();
-    if (!exists) {
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
       await setDoc(ref, {
         role: msg.role,
         text: msg.text,
         ...(msg.itemIds && { itemIds: msg.itemIds }),
+        isLogged: msg.isLogged || false,
         timestamp: serverTimestamp()
+      });
+    } else {
+      await updateDoc(ref, {
+        isLogged: msg.isLogged || false
       });
     }
   } catch (err: any) {
     handleFirestoreError(err, 'write', `users/${userId}/chats/${msg.id}`);
+  }
+};
+
+export const updateChatMessageLoggedStatus = async (userId: string, messageId: string, isLogged: boolean) => {
+  try {
+    const ref = doc(db, 'users', userId, 'chats', messageId);
+    await updateDoc(ref, { isLogged, updatedAt: serverTimestamp() });
+  } catch (err: any) {
+    handleFirestoreError(err, 'write', `users/${userId}/chats/${messageId}`);
   }
 };
 
@@ -129,6 +162,88 @@ export const getOrInitUser = async (userId: string, email: string) => {
   } catch (err: any) {
     handleFirestoreError(err, 'get', `users/${userId}`);
     return [];
+  }
+};
+
+export const subscribeToSessions = (userId: string, callback: (sessions: ChatSession[]) => void) => {
+  const q = query(collection(db, 'users', userId, 'sessions'), orderBy('updatedAt', 'desc'), limit(50));
+  return onSnapshot(q, (snapshot) => {
+    const sessions: ChatSession[] = [];
+    snapshot.forEach(d => {
+      const data = d.data();
+      sessions.push({
+        id: d.id,
+        title: data.title || 'New Chat',
+        lastMessage: data.lastMessage || '',
+        updatedAt: data.updatedAt?.toDate()?.toISOString() || new Date().toISOString()
+      });
+    });
+    callback(sessions);
+  }, (error) => {
+    handleFirestoreError(error, 'list', `users/${userId}/sessions`);
+  });
+};
+
+export const subscribeToSessionMessages = (userId: string, sessionId: string, callback: (chats: ChatMessage[]) => void) => {
+  const q = query(collection(db, 'users', userId, 'sessions', sessionId, 'messages'), orderBy('timestamp', 'asc'));
+  return onSnapshot(q, (snapshot) => {
+    const chats: ChatMessage[] = [];
+    snapshot.forEach(d => {
+      const data = d.data();
+      chats.push({
+        id: d.id,
+        role: data.role,
+        text: data.text,
+        itemIds: data.itemIds || [],
+        isLogged: data.isLogged || false,
+        timestamp: data.timestamp?.toDate()?.toISOString() || new Date().toISOString()
+      });
+    });
+    callback(chats);
+  }, (error) => {
+    handleFirestoreError(error, 'list', `users/${userId}/sessions/${sessionId}/messages`);
+  });
+};
+
+export const syncSessionMessage = async (userId: string, sessionId: string, msg: ChatMessage) => {
+  try {
+    const sessionRef = doc(db, 'users', userId, 'sessions', sessionId);
+    const msgRef = doc(db, 'users', userId, 'sessions', sessionId, 'messages', msg.id);
+    
+    const batch = writeBatch(db);
+    batch.set(msgRef, {
+      role: msg.role,
+      text: msg.text,
+      ...(msg.itemIds && { itemIds: msg.itemIds }),
+      isLogged: msg.isLogged || false,
+      timestamp: serverTimestamp()
+    });
+    
+    batch.update(sessionRef, {
+      lastMessage: msg.text,
+      updatedAt: serverTimestamp()
+    });
+    
+    await batch.commit();
+  } catch (err: any) {
+    handleFirestoreError(err, 'write', `users/${userId}/sessions/${sessionId}/messages/${msg.id}`);
+  }
+};
+
+export const updateSessionMessageLoggedStatus = async (userId: string, sessionId: string, messageId: string, isLogged: boolean) => {
+  try {
+    const ref = doc(db, 'users', userId, 'sessions', sessionId, 'messages', messageId);
+    await updateDoc(ref, { isLogged, updatedAt: serverTimestamp() });
+  } catch (err: any) {
+    handleFirestoreError(err, 'write', `users/${userId}/sessions/${sessionId}/messages/${messageId}`);
+  }
+};
+
+export const deleteSession = async (userId: string, sessionId: string) => {
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'sessions', sessionId));
+  } catch (err: any) {
+    handleFirestoreError(err, 'delete', `users/${userId}/sessions/${sessionId}`);
   }
 };
 
@@ -179,6 +294,7 @@ export const subscribeToChats = (userId: string, callback: (chats: ChatMessage[]
         role: data.role,
         text: data.text,
         itemIds: data.itemIds || [],
+        isLogged: data.isLogged || false,
         timestamp: data.timestamp?.toDate()?.toISOString() || new Date().toISOString()
       });
     });
