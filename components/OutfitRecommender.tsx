@@ -10,6 +10,7 @@ interface OutfitRecommenderProps {
   onMarkAsWorn: (itemIds: string[], messageId?: string) => void;
   userMemory?: string[];
   userUid?: string;
+  isKeyboardVisible?: boolean;
 }
 
 const SilhouetteIcon = ({ silhouette, color, category }: { silhouette?: string, color: string, category?: string }) => {
@@ -68,7 +69,7 @@ const SilhouetteIcon = ({ silhouette, color, category }: { silhouette?: string, 
   return <rect {...common} x="4" y="4" width="16" height="16" rx="4" />;
 };
 
-const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, language, onMarkAsWorn, userMemory = [], userUid }) => {
+const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, language, onMarkAsWorn, userMemory = [], userUid, isKeyboardVisible }) => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -237,7 +238,7 @@ const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, languag
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Chat Header */}
-        <div className="bg-white border-b-[3px] border-black p-4 sm:p-5 flex justify-between items-center relative z-10">
+        <div className={`bg-white border-b-[3px] border-black p-3 sm:p-5 flex justify-between items-center relative z-10 transition-all duration-300 ${isKeyboardVisible ? 'h-0 overflow-hidden border-0 p-0' : ''}`}>
           <div className="flex items-center gap-2 sm:gap-3">
             <button onClick={() => setShowHistory(!showHistory)} className="p-2 sm:p-2.5 rounded-xl border-[3px] border-black bg-white hover:bg-[#F4F1FD] shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:translate-x-0.5 active:shadow-none transition-all" title="Chat History">
               <Clock size={18} strokeWidth={2.5} />
@@ -281,24 +282,27 @@ const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, languag
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 no-scrollbar bg-[#FAF9FF]">
+        <div className={`flex-1 overflow-y-auto ${isKeyboardVisible ? 'p-1' : 'p-4 sm:p-6'} space-y-6 sm:space-y-8 no-scrollbar bg-[#FAF9FF]`}>
           {chatHistory.length === 0 && !loading && (
-             <div className="h-full flex flex-col items-center justify-center text-center space-y-6 p-4">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#A388EE] border-[3px] border-black rounded-[2rem] flex items-center justify-center text-black shadow-[6px_6px_0_0_#000]">
-                <Sparkles size={40} strokeWidth={2.5}/>
+             <div className={`h-full flex flex-col items-center justify-center text-center ${isKeyboardVisible ? 'space-y-2 py-0' : 'space-y-6 p-4'}`}>
+              <div className={`bg-[#A388EE] border-[3px] border-black flex items-center justify-center text-black shadow-[6px_6px_0_0_#000] ${isKeyboardVisible ? 'w-12 h-12 rounded-xl' : 'w-20 h-12 sm:w-24 sm:h-24 rounded-[2.5rem]'}`}>
+                <Sparkles size={isKeyboardVisible ? 24 : 32} className="sm:w-[40px] sm:h-[40px]" strokeWidth={2.5}/>
               </div>
-              <div className="space-y-2">
-                <h4 className="text-xl sm:text-2xl font-black text-black">Style Intelligence Ready</h4>
-                <p className="text-sm sm:text-base font-black text-black/60 max-w-sm">
+              <div className="space-y-1">
+                <h4 className={`${isKeyboardVisible ? 'text-lg' : 'text-xl sm:text-2xl'} font-black text-black`}>Style Intelligence Ready</h4>
+                <p className="hidden sm:block text-sm sm:text-base font-black text-black/60 max-w-sm">
                   Switch to <span className="text-[#A388EE]">Visual Mode</span> to see photos of your recommendations.
                 </p>
+                <p className={`${isKeyboardVisible ? 'hidden' : 'sm:hidden'} text-xs font-black text-black/60`}>
+                   Switch to <span className="text-[#A388EE]">Visual Mode</span> to see photos.
+                </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-md">
+              <div className={`grid grid-cols-1 gap-2.5 sm:gap-3 w-full max-w-md ${isKeyboardVisible ? 'grid-cols-2 opacity-30 scale-75' : ''}`}>
                 {["Casual weekend look", "Outfit for date night", "Style my blue jeans", "Wedding guest ideas"].map(q => (
                   <button 
                     key={q} 
                     onClick={() => { setInput(q); handleSend(); }}
-                    className="p-3 bg-white border-[3px] border-black rounded-2xl text-xs font-black text-black hover:bg-[#CCFF00] transition-all text-left shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:translate-x-0.5 active:shadow-none"
+                    className="p-3.5 sm:p-3 bg-white border-[3px] border-black rounded-2xl sm:rounded-2xl text-[13px] sm:text-xs font-black text-black hover:bg-[#CCFF00] transition-all text-center sm:text-left shadow-[4px_4px_0_0_#000] active:translate-y-0.5 active:translate-x-0.5 active:shadow-none"
                   >
                     "{q}"
                   </button>
@@ -392,22 +396,22 @@ const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, languag
         </div>
 
         {/* Input Area */}
-        <div className="p-4 sm:p-6 bg-white border-t-[3px] border-black">
-          <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-2 sm:gap-3 items-center bg-[#F4F1FD] p-1.5 rounded-[2rem] border-[3px] border-black focus-within:bg-white focus-within:shadow-[6px_6px_0_0_#000] transition-all">
+        <div className={`p-1.5 sm:p-6 bg-white border-t-0 sm:border-t-[3px] border-black ${isKeyboardVisible ? 'p-0.5' : ''}`}>
+          <form onSubmit={handleSend} className={`max-w-3xl mx-auto flex gap-2 sm:gap-3 items-center bg-[#F4F1FD] p-1 rounded-[2.5rem] border-[3px] border-black transition-all ${isKeyboardVisible ? 'shadow-none border-[2px]' : 'focus-within:bg-white focus-within:shadow-[6px_6px_0_0_#000]'}`}>
             <input 
               type="text" 
               value={input} 
               onChange={(e) => setInput(e.target.value)}
               placeholder="What should I wear today?" 
-              className="flex-1 min-w-0 bg-transparent px-4 sm:px-6 py-3 sm:py-3.5 text-sm sm:text-base font-black outline-none text-black placeholder:text-black/30"
+              className={`flex-1 min-w-0 bg-transparent px-4 sm:px-6 py-1 sm:py-3.5 text-sm sm:text-base font-black outline-none text-black placeholder:text-black/30 w-full`}
               disabled={loading}
             />
             <button 
               type="submit" 
               disabled={!input.trim() || loading}
-              className={`shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl sm:rounded-[2rem] flex items-center justify-center transition-all border-[3px] border-black shadow-[2px_2px_0_0_#000] ${input.trim() && !loading ? 'bg-[#CCFF00] hover:scale-105 active:translate-y-1 active:translate-x-1 active:shadow-none' : 'bg-white text-black opacity-30 cursor-not-allowed'}`}
+              className={`shrink-0 w-10 h-10 sm:w-14 sm:h-14 rounded-full sm:rounded-[2rem] flex items-center justify-center transition-all border-[2px] sm:border-[3px] border-black shadow-[2px_2px_0_0_#000] ${input.trim() && !loading ? 'bg-[#CCFF00] hover:scale-105 active:translate-y-1 active:translate-x-1 active:shadow-none' : 'bg-white text-black opacity-30 cursor-not-allowed'}`}
             >
-              <Send size={20} strokeWidth={2.5}/>
+              <Send size={18} className="sm:w-[20px] sm:h-[20px] mr-0.5" strokeWidth={2.5}/>
             </button>
           </form>
         </div>

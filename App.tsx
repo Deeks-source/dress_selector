@@ -240,16 +240,16 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className={`flex-1 max-w-7xl mx-auto w-full ${view === 'recommend' ? 'px-0 pt-0 sm:px-8 overflow-hidden bg-white sm:bg-transparent' : 'px-4 sm:px-8 py-6 sm:py-10 overflow-y-auto'} ${isKeyboardVisible ? 'pb-0' : 'pb-[100px] sm:pb-10'} flex flex-col relative`}>
+      <main className={`flex-1 max-w-7xl mx-auto w-full ${view === 'recommend' ? 'px-0 pt-0 sm:px-8 overflow-hidden bg-white sm:bg-transparent' : 'px-4 sm:px-8 py-6 sm:py-10 overflow-y-auto'} ${isKeyboardVisible ? 'pb-0' : 'pb-[115px] sm:pb-10'} flex flex-col relative`}>
         {view === 'onboarding' && <Onboarding onItemsAdded={handleAddItems} wardrobe={wardrobe} onComplete={() => setView('wardrobe')} />}
         {view === 'wardrobe' && <WardrobeGrid items={wardrobe} onDelete={handleDeleteItem} onUpdate={handleUpdateItem} onAddMore={() => setView('onboarding')} language={language} />}
-        {view === 'recommend' && <OutfitRecommender wardrobe={wardrobe} language={language} onMarkAsWorn={markAsWorn} userMemory={memory} userUid={user?.uid} />}
+        {view === 'recommend' && <OutfitRecommender wardrobe={wardrobe} language={language} onMarkAsWorn={markAsWorn} userMemory={memory} userUid={user?.uid} isKeyboardVisible={isKeyboardVisible} />}
         {view === 'designer' && <CostumeDesigner wardrobe={wardrobe} language={language} cache={designerCache} setCache={setDesignerCache} />}
         {view === 'profile' && user && <Profile user={user} onSignOut={() => auth.signOut()} wardrobe={wardrobe} />}
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className={`fixed bottom-0 left-0 w-full bg-white flex justify-around items-end pb-8 pt-4 px-2 z-50 rounded-t-[2.5rem] border-t-[3px] border-black shadow-[0_-10px_40px_rgba(0,0,0,0.06)] sm:hidden transition-transform duration-300 ${isKeyboardVisible ? 'translate-y-full' : 'translate-y-0'}`}>
+      <nav className={`fixed bottom-0 left-0 w-full bg-white flex justify-around items-end pb-6 pt-4 px-2 z-50 rounded-t-[2.5rem] border-t-[3px] border-black shadow-[0_-10px_40px_rgba(0,0,0,0.06)] sm:hidden transition-transform duration-300 ${isKeyboardVisible ? 'translate-y-full' : 'translate-y-0'}`}>
         <button onClick={() => setView('wardrobe')} className={`flex flex-col items-center gap-1.5 w-16 ${view === 'wardrobe' ? 'text-black' : 'text-black'}`}>
           <div className={`${view === 'wardrobe' ? 'bg-[#F4F1FD] p-2 rounded-xl' : 'p-2'}`}>
              <LayoutGrid size={22} className={view === 'wardrobe' ? 'fill-current opacity-20' : ''} strokeWidth={2.5} />
