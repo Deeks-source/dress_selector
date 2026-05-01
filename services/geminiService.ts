@@ -72,6 +72,101 @@ export const getChatStylistResponse = async (
   }
 };
 
+export const getOutfitRecommendationForEvent = async (
+  wardrobe: ClothingItem[],
+  eventTitle: string,
+  eventType: string,
+  eventLocation: string | null,
+  eventDescription: string | null,
+  memory: string[] = []
+): Promise<{ items: string[], reasoning: string }> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+  const memoryContext = memory.length > 0 ? `\nUSER PREFERENCES/MEMORY:\n${memory.join('\n')}` : '';
+
+  const prompt = `You are a stylish best friend and fashion expert.
+  WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color, style: i.style }))) }.${memoryContext}
+  
+  Please recommend an outfit for the following event based ONLY on the items available in the user's wardrobe.
+  Event Title: ${eventTitle}
+  Event Type: ${eventType}
+  Event Location: ${eventLocation || 'Unknown'}
+  Event Description / Insights: ${eventDescription || 'None'}
+  
+  Format your response STRICTLY as a JSON object with the following structure:
+  {
+    "items": ["id1", "id2"],
+    "reasoning": "A brief explanation of why this outfit works for the event..."
+  }
+  If no suitable outfit can be formed, you can return {"items": [], "reasoning": "I couldn't find a good combination..."}.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: STYLIST_MODEL,
+      contents: prompt,
+      config: { 
+        responseMimeType: "application/json",
+        temperature: 0.5 
+      }
+    });
+
+    const text = response.text;
+    if (text) {
+      const data = JSON.parse(text);
+      return { items: data.items || [], reasoning: data.reasoning || '' };
+    }
+    return { items: [], reasoning: '' };
+  } catch (e) {
+    console.error("AI Stylist Event Builder Error:", e);
+    return { items: [], reasoning: '' };
+  }
+};
+
+export const tweakEventOutfit = async (
+  wardrobe: ClothingItem[],
+  eventTitle: string,
+  eventDescription: string | null,
+  currentOutfitIds: string[],
+  chatHistory: { role: string, text: string }[],
+  userMessage: string,
+  memory: string[] = []
+): Promise<{ text: string, itemIds?: string[] }> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+  const memoryContext = memory.length > 0 ? `\nUSER PREFERENCES/MEMORY:\n${memory.join('\n')}` : '';
+
+  const prompt = `You are a fashion stylist helping to tweak an outfit for an event.
+  WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color }))) }.
+  EVENT: ${eventTitle} ${eventDescription ? `(${eventDescription})` : ''}
+  CURRENT OUTFIT: ${JSON.stringify(currentOutfitIds)}${memoryContext}
+  
+  The user is chatting with you about this outfit. Provide a helpful response, and if they ask to change items (like "swap the pants to something else"), return the NEW full list of item IDs.
+  Format STRICTLY as JSON: {"text": "Your helpful reply...", "itemIds": ["id1", "id2"]}. 
+  If you aren't changing the outfit, don't include itemIds (or pass the current ones).`;
+
+  const contents = [
+    { role: 'user', parts: [{ text: prompt }] },
+    ...chatHistory.map(msg => ({ role: msg.role === 'model' ? 'model' : 'user', parts: [{ text: msg.text }] })),
+    { role: 'user', parts: [{ text: userMessage }] }
+  ];
+
+  try {
+    const response = await ai.models.generateContent({
+      model: STYLIST_MODEL,
+      contents: contents as any,
+      config: { 
+        responseMimeType: "application/json",
+        temperature: 0.5 
+      }
+    });
+    const text = response.text;
+    return text ? JSON.parse(text) : { text: "Sorry, I couldn't process that." };
+  } catch (e) {
+    console.error("AI Tweak Error:", e);
+    return { text: "Error connecting to AI." };
+  }
+};
+
 export const extractStyleMemory = async (
   history: ChatMessage[],
   userMessage: string

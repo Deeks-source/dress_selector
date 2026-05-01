@@ -97,6 +97,27 @@ service cloud.firestore {
       return hasRequired && countOk && typesOk;
     }
 
+    function isValidEvent(data, isCreate) {
+      let hasRequired = isCreate ? data.keys().hasAll(['title', 'date', 'type', 'outfitItemIds', 'createdAt', 'updatedAt']) : true;
+      let countOk = !isCreate || (data.keys().size() >= 6 && data.keys().size() <= 11);
+      
+      let typesOk = (
+        (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
+        (!('date' in data) || (data.date is string && data.date.size() <= 20)) &&
+        (!('time' in data) || (data.time is string && data.time.size() <= 20)) &&
+        (!('type' in data) || (data.type is string && data.type.size() <= 20)) &&
+        (!('location' in data) || (data.location is string && data.location.size() <= 200)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+        (!('aiReasoning' in data) || (data.aiReasoning is string && data.aiReasoning.size() <= 3000)) &&
+        (!('thread' in data) || (data.thread is list && data.thread.size() <= 100)) &&
+        (!('outfitItemIds' in data) || (data.outfitItemIds is list && data.outfitItemIds.size() <= 50)) &&
+        (!('createdAt' in data) || data.createdAt is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp)
+      );
+      
+      return hasRequired && countOk && typesOk;
+    }
+
     // Rules
     match /users/{userId} {
       allow get: if isOwner(userId) && isValidId(userId);
@@ -180,6 +201,23 @@ service cloud.firestore {
                       && isValidId(messageId)
                       && isValidChatMessage(incoming(), false)
                       && incoming().diff(existing()).affectedKeys().hasOnly(['isLogged', 'updatedAt']);
+      }
+      match /events/{eventId} {
+        allow read: if isOwner(userId);
+        allow delete: if isOwner(userId) && isValidId(eventId);
+        allow create: if isOwner(userId)
+                      && isVerified()
+                      && isValidId(eventId)
+                      && isValidEvent(incoming(), true)
+                      && incoming().createdAt == request.time
+                      && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId)
+                      && isVerified()
+                      && isValidId(eventId)
+                      && isValidEvent(incoming(), false)
+                      && incoming().updatedAt == request.time
+                      && incoming().createdAt == existing().createdAt
+                      && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'date', 'time', 'type', 'location', 'description', 'aiReasoning', 'thread', 'outfitItemIds', 'updatedAt']);
       }
     }
   }

@@ -11,6 +11,7 @@ interface OutfitRecommenderProps {
   userMemory?: string[];
   userUid?: string;
   isKeyboardVisible?: boolean;
+  initialQuery?: string;
 }
 
 const SilhouetteIcon = ({ silhouette, color, category }: { silhouette?: string, color: string, category?: string }) => {
@@ -69,16 +70,22 @@ const SilhouetteIcon = ({ silhouette, color, category }: { silhouette?: string, 
   return <rect {...common} x="4" y="4" width="16" height="16" rx="4" />;
 };
 
-const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, language, onMarkAsWorn, userMemory = [], userUid, isKeyboardVisible }) => {
+const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({ wardrobe, language, onMarkAsWorn, userMemory = [], userUid, isKeyboardVisible, initialQuery }) => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(initialQuery || '');
   const [loading, setLoading] = useState(false);
   const [showPhotos, setShowPhotos] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (initialQuery) {
+      setInput(initialQuery);
+    }
+  }, [initialQuery]);
 
   // Subscribe to all sessions
   useEffect(() => {

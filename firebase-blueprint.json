@@ -72,6 +72,25 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "lastMessage", "createdAt", "updatedAt"]
+    },
+    "CalendarEvent": {
+      "title": "CalendarEvent",
+      "description": "A calendar event with associated outfits.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "type": { "type": "string" },
+        "location": { "type": "string" },
+        "description": { "type": "string" },
+        "aiReasoning": { "type": "string" },
+        "thread": { "type": "array", "items": { "type": "object" } },
+        "outfitItemIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "date", "type", "outfitItemIds", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -94,6 +113,10 @@
     "/users/{userId}/chats/{messageId}": {
       "schema": { "$ref": "#/entities/ChatMessage" },
       "description": "Legacy chat history."
+    },
+    "/users/{userId}/events/{eventId}": {
+      "schema": { "$ref": "#/entities/CalendarEvent" },
+      "description": "User's calendar events and assigned outfits."
     }
   }
 }

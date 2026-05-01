@@ -73,21 +73,23 @@ const handleFirestoreError = (error: any, operationType: FirestoreErrorInfo['ope
 export const syncWardrobeItem = async (userId: string, item: ClothingItem) => {
   try {
     const ref = doc(db, 'users', userId, 'wardrobe', item.id);
-    const exists = (await getDoc(ref)).exists();
-    
     const { id, ...itemData } = item;
-
-    if (exists) {
+    
+    try {
       await updateDoc(ref, {
         ...itemData,
         updatedAt: serverTimestamp()
       });
-    } else {
-      await setDoc(ref, {
-        ...itemData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+    } catch (updateErr: any) {
+      if (updateErr.code === 'not-found' || updateErr.message?.includes('No document to update')) {
+        await setDoc(ref, {
+          ...itemData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        throw updateErr;
+      }
     }
   } catch (err: any) {
     handleFirestoreError(err, 'write', `users/${userId}/wardrobe/${item.id}`);
@@ -175,7 +177,7 @@ export const subscribeToSessions = (userId: string, callback: (sessions: ChatSes
         id: d.id,
         title: data.title || 'New Chat',
         lastMessage: data.lastMessage || '',
-        updatedAt: data.updatedAt?.toDate()?.toISOString() || new Date().toISOString()
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : new Date().toISOString()
       });
     });
     callback(sessions);
@@ -196,7 +198,7 @@ export const subscribeToSessionMessages = (userId: string, sessionId: string, ca
         text: data.text,
         itemIds: data.itemIds || [],
         isLogged: data.isLogged || false,
-        timestamp: data.timestamp?.toDate()?.toISOString() || new Date().toISOString()
+        timestamp: data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : new Date().toISOString()
       });
     });
     callback(chats);
@@ -295,7 +297,7 @@ export const subscribeToChats = (userId: string, callback: (chats: ChatMessage[]
         text: data.text,
         itemIds: data.itemIds || [],
         isLogged: data.isLogged || false,
-        timestamp: data.timestamp?.toDate()?.toISOString() || new Date().toISOString()
+        timestamp: data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : new Date().toISOString()
       });
     });
     callback(chats.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()));
@@ -316,4 +318,66 @@ export const appendMemoryFact = async (userId: string, newFacts: string[]) => {
   } catch (err: any) {
     handleFirestoreError(err, 'write', `users/${userId}`);
   }
+};
+
+export const syncEvent = async (userId: string, event: import('../types').CalendarEvent) => {
+  try {
+    const ref = doc(db, 'users', userId, 'events', event.id);
+    const { id, createdAt, ...eventData } = event;
+    const cleanData = Object.fromEntries(
+      Object.entries(eventData).filter(([_, v]) => v !== undefined)
+    );
+
+    try {
+      await updateDoc(ref, {
+        ...cleanData,
+        updatedAt: serverTimestamp()
+      });
+    } catch (updateErr: any) {
+      if (updateErr.code === 'not-found' || updateErr.message?.includes('No document to update')) {
+        await setDoc(ref, {
+          ...cleanData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        throw updateErr;
+      }
+    }
+  } catch (err: any) {
+    handleFirestoreError(err, 'write', `users/${userId}/events/${event.id}`);
+  }
+};
+
+export const deleteEventDB = async (userId: string, eventId: string) => {
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'events', eventId));
+  } catch (err: any) {
+    handleFirestoreError(err, 'delete', `users/${userId}/events/${eventId}`);
+  }
+};
+
+export const subscribeToEvents = (userId: string, callback: (events: import('../types').CalendarEvent[]) => void) => {
+  return onSnapshot(collection(db, 'users', userId, 'events'), (snapshot) => {
+    const events: import('../types').CalendarEvent[] = [];
+    snapshot.forEach(d => {
+      const data = d.data() as any;
+      events.push({
+        id: d.id,
+        title: data.title,
+        date: data.date,
+        time: data.time || undefined,
+        type: data.type,
+        location: data.location || undefined,
+        description: data.description || undefined,
+        aiReasoning: data.aiReasoning || undefined,
+        thread: data.thread || undefined,
+        outfitItemIds: data.outfitItemIds || [],
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString())
+      });
+    });
+    callback(events);
+  }, (error) => {
+    handleFirestoreError(error, 'list', `users/${userId}/events`);
+  });
 };

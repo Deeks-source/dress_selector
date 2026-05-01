@@ -61,4 +61,18 @@ export interface DesignerState {
   advice: string;
 }
 
-export type View = 'onboarding' | 'wardrobe' | 'recommend' | 'designer' | 'profile';
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:mm
+  type: 'meeting' | 'party' | 'casual' | 'formal' | 'other';
+  location?: string;
+  description?: string;
+  outfitItemIds: string[];
+  aiReasoning?: string;
+  thread?: { role: 'user' | 'model', text: string, itemIds?: string[] }[];
+  createdAt: string;
+}
+
+export type View = 'onboarding' | 'wardrobe' | 'recommend' | 'planner' | 'designer' | 'profile';
