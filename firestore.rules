@@ -48,7 +48,7 @@ service cloud.firestore {
     function isValidWardrobeItem(data, isCreate) {
       let isPartialUpdate = !isCreate;
       let hasRequired = isCreate ? data.keys().hasAll(['image', 'category', 'silhouette', 'name', 'color', 'hexColor', 'material', 'pattern', 'style', 'season', 'description', 'wearCount', 'createdAt', 'updatedAt']) : true;
-      let countOk = !isCreate || data.keys().size() == 14;
+      let countOk = !isCreate || (data.keys().size() >= 14 && data.keys().size() <= 15);
       
       let typesOk = (
         (!('image' in data) || (data.image is string && data.image.size() <= 1048576)) && // Max 1MB
@@ -63,6 +63,7 @@ service cloud.firestore {
         (!('season' in data) || (data.season is string && data.season.size() <= 50)) &&
         (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
         (!('wearCount' in data) || (data.wearCount is number && data.wearCount >= 0)) &&
+        (!('lastWorn' in data) || (data.lastWorn is string && data.lastWorn.size() <= 30)) &&
         (!('createdAt' in data) || data.createdAt is timestamp) &&
         (!('updatedAt' in data) || data.updatedAt is timestamp)
       );
@@ -153,8 +154,8 @@ service cloud.firestore {
                       && isValidId(itemId)
                       && isValidWardrobeItem(incoming(), false)
                       && incoming().updatedAt == request.time
-                      && incoming().createdAt == existing().createdAt
-                      && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'color', 'hexColor', 'style', 'season', 'wearCount', 'description', 'updatedAt', 'image', 'silhouette', 'material', 'pattern']);
+                      && (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt)
+                      && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'color', 'hexColor', 'style', 'season', 'wearCount', 'lastWorn', 'description', 'updatedAt', 'image', 'silhouette', 'material', 'pattern']);
       }
 
       match /sessions/{sessionId} {

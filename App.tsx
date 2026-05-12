@@ -51,7 +51,10 @@ const App: React.FC = () => {
     const unsubEvents = subscribeToEvents(user.uid, setEvents);
     const unsubWardrobe = subscribeToWardrobe(user.uid, (items) => {
       setWardrobe(items);
-      if (items.length > 0 && view === 'onboarding') setView('wardrobe');
+      setView(currentView => {
+        if (items.length > 0 && currentView === 'onboarding') return 'wardrobe';
+        return currentView;
+      });
     });
 
     return () => {
@@ -112,16 +115,18 @@ const App: React.FC = () => {
   const markAsWorn = async (itemIds: string[], messageId?: string) => {
     if (!user) return;
     
+    const now = new Date().toISOString();
+
     // Optimistic update for wardrobe wear counts
     setWardrobe(prev => prev.map(item => 
-      itemIds.includes(item.id) ? { ...item, wearCount: (item.wearCount || 0) + 1 } : item
+      itemIds.includes(item.id) ? { ...item, wearCount: (item.wearCount || 0) + 1, lastWorn: now } : item
     ));
 
     try {
       await Promise.all(
         wardrobe
           .filter(item => itemIds.includes(item.id))
-          .map(item => syncWardrobeItem(user.uid, { ...item, wearCount: (item.wearCount || 0) + 1 }))
+          .map(item => syncWardrobeItem(user.uid, { ...item, wearCount: (item.wearCount || 0) + 1, lastWorn: now }))
       );
     } catch (error) {
       console.error("Failed to log wear:", error);

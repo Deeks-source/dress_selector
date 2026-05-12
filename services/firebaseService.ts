@@ -277,7 +277,8 @@ export const subscribeToWardrobe = (userId: string, callback: (items: ClothingIt
         style: data.style,
         season: data.season,
         description: data.description,
-        wearCount: data.wearCount
+        wearCount: data.wearCount,
+        lastWorn: data.lastWorn
       });
     });
     callback(items);

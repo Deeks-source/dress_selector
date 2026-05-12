@@ -24,6 +24,7 @@ export interface ClothingItem {
   season: string;
   description: string;
   wearCount: number;
+  lastWorn?: string;
 }
 
 export interface ChatMessage {

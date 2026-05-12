@@ -42,10 +42,15 @@ export const getChatStylistResponse = async (
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
   const contextPrompt = `You are a stylish best friend and fashion expert. 
+  CURRENT DATE: ${new Date().toISOString()}
   USER PREFERENCES/PROFILE FACTS: ${JSON.stringify(userMemory)}
-  WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color })))}.
+  WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color, wearCount: i.wearCount, lastWorn: i.lastWorn || 'Never' })))}.
   
   Your goal is to provide personalized, high-fashion styling advice. 
+  IMPORTANT RULES:
+  - Strongly consider the user's preferences, sizing, dislikes, and laundry/reuse habits from the profile facts.
+  - Check the CURRENT DATE against the 'lastWorn' property of items. If an item was worn very recently, DO NOT recommend it again unless the user's profile facts specifically state they reuse that type of clothing frequently before washing (e.g., jeans, black pants).
+  - Use the wearCount to help decide. You might suggest items they haven't worn much, or rely on favorites depending on the context.
   
   Format strictly as JSON: {"text": "Your message here", "itemIds": ["id1", "id2"]}`;
 
@@ -85,9 +90,15 @@ export const getOutfitRecommendationForEvent = async (
   const memoryContext = memory.length > 0 ? `\nUSER PREFERENCES/MEMORY:\n${memory.join('\n')}` : '';
 
   const prompt = `You are a stylish best friend and fashion expert.
-  WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color, style: i.style }))) }.${memoryContext}
+  CURRENT DATE: ${new Date().toISOString()}
+  WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color, style: i.style, wearCount: i.wearCount, lastWorn: i.lastWorn || 'Never' }))) }.${memoryContext}
   
   Please recommend an outfit for the following event based ONLY on the items available in the user's wardrobe.
+  IMPORTANT RULES:
+  - Strongly consider the user's preferences, sizing, dislikes, and laundry/reuse habits from the profile facts (memory).
+  - Check the CURRENT DATE against the 'lastWorn' property of items. If an item was worn very recently, DO NOT recommend it again unless the user's profile facts specifically state they reuse that type of clothing frequently before washing (e.g., jeans, black pants).
+  - Use the wearCount to help decide. You might suggest items they haven't worn much, or rely on favorites depending on the context.
+  
   Event Title: ${eventTitle}
   Event Type: ${eventType}
   Event Location: ${eventLocation || 'Unknown'}
@@ -136,11 +147,16 @@ export const tweakEventOutfit = async (
   const memoryContext = memory.length > 0 ? `\nUSER PREFERENCES/MEMORY:\n${memory.join('\n')}` : '';
 
   const prompt = `You are a fashion stylist helping to tweak an outfit for an event.
-  WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color }))) }.
+  CURRENT DATE: ${new Date().toISOString()}
+  WARDROBE: ${JSON.stringify(wardrobe.map(i => ({ id: i.id, name: i.name, category: i.category, color: i.color, wearCount: i.wearCount, lastWorn: i.lastWorn || 'Never' }))) }.
   EVENT: ${eventTitle} ${eventDescription ? `(${eventDescription})` : ''}
   CURRENT OUTFIT: ${JSON.stringify(currentOutfitIds)}${memoryContext}
   
   The user is chatting with you about this outfit. Provide a helpful response, and if they ask to change items (like "swap the pants to something else"), return the NEW full list of item IDs.
+  IMPORTANT RULES:
+  - Strongly consider the user's preferences, sizing, dislikes, and laundry/reuse habits from the profile facts (memory).
+  - Check the CURRENT DATE against the 'lastWorn' property of items. If an item was worn very recently, DO NOT recommend it again unless the user's profile facts specifically state they reuse that type of clothing frequently before washing.
+  
   Format STRICTLY as JSON: {"text": "Your helpful reply...", "itemIds": ["id1", "id2"]}. 
   If you aren't changing the outfit, don't include itemIds (or pass the current ones).`;
 
@@ -172,8 +188,8 @@ export const extractStyleMemory = async (
   userMessage: string
 ): Promise<string[]> => {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const prompt = `Analyze this user chat sequence and extract any new, permanent facts about their style preferences, physical traits, lifestyle, sizing, or dislikes.
-  Focus on high-fidelity extraction of style identity.
+  const prompt = `Analyze this user chat sequence and extract any new, permanent facts about their style preferences, physical traits, lifestyle, sizing, dislikes, and specifically clothing reuse/laundry habits (e.g. "willing to wear jeans multiple times without washing", "doesn't wash black pants daily").
+  Focus on high-fidelity extraction of style identity and practical wearing habits.
   Return a JSON array of strings. Empty array [] if no new facts.
   
   Chat History:
